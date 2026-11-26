@@ -1,5 +1,6 @@
 // WebOS — About window.
 import { h, ico } from './ui.js';
+import { logo } from './icons.js';
 import { OS } from './config.js';
 
 export function buildAbout() {
@@ -8,7 +9,7 @@ export function buildAbout() {
   return h(
     'div',
     { class: 'about' },
-    h('img', { src: '/icon.svg', alt: 'WebOS logo' }),
+    h('div', { class: 'about-logo', role: 'img', 'aria-label': 'WebOS logo', html: logo(96) }),
     h('h1', null, OS.name),
     h('div', { class: 'ver' }, `Version ${OS.version}`),
     h('p', { class: 'tag' }, OS.tagline + ' Install static web apps from ZIP files, folders or GitHub, and run them in windows — even offline.'),

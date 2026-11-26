@@ -1,4 +1,5 @@
 // WebOS — the shell: boot, desktop, taskbar, start menu, notifications, lock screen, app launching.
+import { logo } from './icons.js';
 import { h, ico, $, toast, modal, confirmBox, showMenu, closeMenu, download, promptBox } from './ui.js';
 import { OS } from './config.js';
 import { settings, DEFAULTS, checkPin, hasPin } from './settings.js';
@@ -11,6 +12,7 @@ import { exportAppZip, InstallError } from './installer.js';
 import { buildAppManager } from './app-manager.js';
 import { buildSettings } from './app-settings.js';
 import { buildAbout } from './app-about.js';
+import { buildHelp } from './app-help.js';
 import { canInstall, promptInstall, onInstallChange } from './pwa.js';
 
 /* ================================================================= state */
@@ -22,6 +24,7 @@ const instances = new Map(); // window key -> { destroy, go }
 const SYS = {
   manager: { title: 'App Manager', icon: 'package', color: '#4f7cff', w: 880, h: 580 },
   settings: { title: 'Settings', icon: 'settings', color: '#64748b', w: 920, h: 620 },
+  help: { title: 'Help', icon: 'help', color: '#f59e0b', w: 720, h: 620 },
   about: { title: 'About WebOS', icon: 'info', color: '#14b8a6', w: 480, h: 620 },
 };
 
@@ -185,7 +188,8 @@ function openSystem(id, arg) {
   } else if (id === 'settings') {
     inst = buildSettings(host, arg || 'appearance');
     content = inst.el;
-  } else content = buildAbout();
+  } else if (id === 'help') content = buildHelp(host);
+  else content = buildAbout();
   instances.set(key, inst || {});
   wm.create({
     key,
@@ -286,6 +290,7 @@ document.addEventListener('contextmenu', (e) => {
     { separator: true },
     { label: 'Change wallpaper', icon: 'image', onClick: () => openSystem('settings', 'appearance') },
     { label: 'Settings', icon: 'settings', onClick: () => openSystem('settings') },
+    { label: 'Help', icon: 'help', onClick: () => openSystem('help') },
     { label: 'About WebOS', icon: 'info', onClick: () => openSystem('about') },
   ]);
 });
@@ -318,7 +323,7 @@ let panel = null;
 function buildTaskbar() {
   const tb = $('#taskbar');
   tb.className = 'glass';
-  startBtn = h('button', { class: 'tb-btn tb-start', title: 'Start (Alt+A)', 'aria-label': 'Start menu', 'aria-haspopup': 'true', onclick: () => togglePanel('start'), html: '<img class="logo" src="/icon.svg" alt="" width="26" height="26">' });
+  startBtn = h('button', { class: 'tb-btn tb-start', title: 'Start (Alt+A)', 'aria-label': 'Start menu', 'aria-haspopup': 'true', onclick: () => togglePanel('start'), html: logo(26, 'logo') });
   itemsEl = h('div', { id: 'tb-items' });
   const time = h('b');
   const date = h('span');
@@ -641,7 +646,7 @@ function showWelcome() {
 /* ================================================================== boot */
 async function boot() {
   const started = performance.now();
-  if (settings.get('firstRun') && !settings.get('pinned').length) settings.patch({ pinned: ['manager', 'settings'] });
+  if (settings.get('firstRun') && !settings.get('pinned').length) settings.patch({ pinned: ['manager', 'settings', 'help'] });
   applyWallpaper();
   buildTaskbar();
   tickClock();

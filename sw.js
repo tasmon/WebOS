@@ -5,13 +5,13 @@
  */
 'use strict';
 
-const VERSION = '1.0.0';
+const VERSION = '1.0.1';
 const SHELL_CACHE = 'webos-shell-' + VERSION;
 // Keep in sync with the files in the repository.
 const SHELL = [
   '/', '/index.html', '/style.css', '/main.js', '/config.js', '/icons.js', '/ui.js', '/db.js', '/tile.js',
   '/settings.js', '/wallpaper.js', '/pwa.js', '/wm.js', '/installer.js', '/install-ui.js',
-  '/app-manager.js', '/app-settings.js', '/app-about.js', '/jszip.min.js', '/icon.svg', '/icon-192.png',
+  '/app-manager.js', '/app-settings.js', '/app-about.js', '/app-help.js', '/jszip.min.js', '/icon.svg', '/icon-192.png',
   '/icon-512.png', '/icon-maskable-512.png', '/manifest.webmanifest',
 ];
 

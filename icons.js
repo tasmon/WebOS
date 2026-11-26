@@ -51,6 +51,7 @@ const P = {
   box: '<path d="M21 8l-9-5-9 5v8l9 5 9-5z"/><path d="M3 8l9 5 9-5"/><line x1="12" y1="13" x2="12" y2="21"/>',
   clock: '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
   user: '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+  help: '<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
   heart: '<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>',
 };
 
@@ -60,3 +61,10 @@ export function icon(name, size = 18) {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${body}</svg>`;
 }
 export const hasIcon = (n) => n in P;
+
+let logoN = 0;
+/** The WebOS logo as inline SVG (no image file needed, so it can never show as broken). */
+export function logo(size = 48, cls = '') {
+  const n = ++logoN;
+  return `<svg class="${cls}" xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 512 512" aria-hidden="true" focusable="false"><defs><linearGradient id="lgb${n}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5b8cff"/><stop offset="1" stop-color="#8b5cf6"/></linearGradient><linearGradient id="lgw${n}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4f7cff"/><stop offset="1" stop-color="#7c3aed"/></linearGradient></defs><rect width="512" height="512" rx="112" fill="url(#lgb${n})"/><rect x="72" y="92" width="300" height="236" rx="30" fill="#fff" fill-opacity=".28"/><rect x="108" y="140" width="332" height="262" rx="32" fill="#fff"/><path d="M108 172a32 32 0 0 1 32-32h268a32 32 0 0 1 32 32v26H108z" fill="#eef1fb"/><circle cx="146" cy="169" r="11" fill="#ff6b6b"/><circle cx="178" cy="169" r="11" fill="#ffc14d"/><circle cx="210" cy="169" r="11" fill="#3ddc97"/><path d="M164 244l44 108 48-84 48 84 44-108" fill="none" stroke="url(#lgw${n})" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+}
