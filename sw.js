@@ -5,7 +5,7 @@
  */
 'use strict';
 
-const VERSION = '1.0.2';
+const VERSION = '1.0.3';
 const SHELL_CACHE = 'webos-shell-' + VERSION;
 // Keep in sync with the files in the repository.
 const SHELL = [
@@ -81,6 +81,22 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+/* ---------------------------------------------------------- icon fallback */
+// If the icon files are missing from the server, WebOS still needs icons (tab icon, home screen, install).
+// The SVG is built in here; the PNGs are drawn by the page on first run (main.js) and kept in this cache.
+const ICON_CACHE = 'webos-icons';
+const ICON_PATHS = ['/icon.svg', '/icon-192.png', '/icon-512.png', '/icon-maskable-512.png'];
+const LOGO_SVG = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"512\" height=\"512\" viewBox=\"0 0 512 512\"><defs><linearGradient id=\"lgb1\" x1=\"0\" y1=\"0\" x2=\"1\" y2=\"1\"><stop offset=\"0\" stop-color=\"#5b8cff\"/><stop offset=\"1\" stop-color=\"#8b5cf6\"/></linearGradient><linearGradient id=\"lgw1\" x1=\"0\" y1=\"0\" x2=\"1\" y2=\"1\"><stop offset=\"0\" stop-color=\"#4f7cff\"/><stop offset=\"1\" stop-color=\"#7c3aed\"/></linearGradient></defs><rect width=\"512\" height=\"512\" rx=\"112\" fill=\"url(#lgb1)\"/><rect x=\"72\" y=\"92\" width=\"300\" height=\"236\" rx=\"30\" fill=\"#fff\" fill-opacity=\".28\"/><rect x=\"108\" y=\"140\" width=\"332\" height=\"262\" rx=\"32\" fill=\"#fff\"/><path d=\"M108 172a32 32 0 0 1 32-32h268a32 32 0 0 1 32 32v26H108z\" fill=\"#eef1fb\"/><circle cx=\"146\" cy=\"169\" r=\"11\" fill=\"#ff6b6b\"/><circle cx=\"178\" cy=\"169\" r=\"11\" fill=\"#ffc14d\"/><circle cx=\"210\" cy=\"169\" r=\"11\" fill=\"#3ddc97\"/><path d=\"M164 244l44 108 48-84 48 84 44-108\" fill=\"none\" stroke=\"url(#lgw1)\" stroke-width=\"28\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg>";
+async function iconResponse(req, path) {
+  try {
+    const res = await fetch(req);
+    if (res.ok) return res;
+  } catch (e) {}
+  if (path === '/icon.svg') return new Response(LOGO_SVG, { headers: { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'no-cache' } });
+  const hit = await (await caches.open(ICON_CACHE)).match(path);
+  return hit || new Response('Not found', { status: 404, headers: { 'Content-Type': 'text/plain' } });
+}
+
 /* ---------------------------------------------------------------- fetch */
 self.addEventListener('fetch', (event) => {
   const req = event.request;
@@ -97,6 +113,7 @@ async function route(event, url) {
     if (!m[2]) return Response.redirect('/apps/' + m[1] + '/' + url.search, 302);
     return serveApp(m[1], m[2], req, url, true);
   }
+  if (ICON_PATHS.includes(url.pathname)) return iconResponse(req, url.pathname);
   // A request made by an app page using a root-relative path (e.g. "/css/site.css")
   const appId = await originApp(event, req);
   if (appId) {

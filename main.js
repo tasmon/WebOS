@@ -137,6 +137,46 @@ function initSW() {
   return swReady;
 }
 
+/* ================================================================== icons */
+// If the icon files are missing from the website, draw them once and keep them for the service worker.
+async function ensureIcons() {
+  try {
+    if (!('caches' in window) || !(await initSW())) return;
+    const defs = [['/icon-192.png', 192, false], ['/icon-512.png', 512, false], ['/icon-maskable-512.png', 512, true]];
+    const cache = await caches.open('webos-icons');
+    let made = false;
+    for (const [path, size, maskable] of defs) {
+      const r = await fetch(path, { cache: 'no-store' }).catch(() => null);
+      if (r && r.ok && (r.headers.get('content-type') || '').startsWith('image/')) continue;
+      const img = new Image();
+      img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(logo(size));
+      await img.decode();
+      const c = document.createElement('canvas');
+      c.width = c.height = size;
+      const g = c.getContext('2d');
+      if (maskable) {
+        const bg = g.createLinearGradient(0, 0, size, size);
+        bg.addColorStop(0, '#5b8cff');
+        bg.addColorStop(1, '#8b5cf6');
+        g.fillStyle = bg;
+        g.fillRect(0, 0, size, size);
+        const s = size * 0.78;
+        g.drawImage(img, (size - s) / 2, (size - s) / 2, s, s); // keep the logo inside the safe zone
+      } else g.drawImage(img, 0, 0, size, size);
+      const blob = await new Promise((res) => c.toBlob(res, 'image/png'));
+      await cache.put(path, new Response(blob, { headers: { 'Content-Type': 'image/png' } }));
+      made = true;
+    }
+    // Chrome only offers "Install" after it can load the icons, so reload once after making them.
+    if (made && !sessionStorage.getItem('webos.iconsReload')) {
+      sessionStorage.setItem('webos.iconsReload', '1');
+      location.reload();
+    }
+  } catch (e) {
+    console.warn('Icon check failed', e);
+  }
+}
+
 /* ============================================================== launching */
 const sysIconFn = (id) => () => systemTile(SYS[id].icon, SYS[id].color);
 
@@ -822,7 +862,7 @@ async function boot() {
   }
   drawDesktop();
   drawTaskbar();
-  initSW();
+  initSW().then(ensureIcons);
   settings.subscribe((keys) => {
     if (keys.some((k) => ['showSystemIcons', 'sortApps', 'hiddenIcons', '*'].includes(k))) drawDesktop();
     else if (keys.some((k) => ['iconPos', 'iconSize', 'fontScale', 'showLabels', 'taskbarPos', 'taskbarAutoHide'].includes(k))) queueLayout();
