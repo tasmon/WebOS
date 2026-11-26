@@ -1,69 +1,111 @@
+<div align="center">
+
+<img src="icon-192.png" alt="WebOS logo" width="96" height="96">
+
 # WebOS
 
-A tiny operating system that lives in your browser. Install any **static website (ZIP, folder or GitHub repo)** as an app and run it in a window — even offline.
+**A tiny operating system that lives in your browser.**
+Install websites as apps, open them in windows, and use them even offline.
 
-Live at **https://webos.asf.run** · New here? Read the [User Guide](USER-GUIDE.md) (also built into WebOS under **Help**).
+[![Open WebOS](https://img.shields.io/badge/Open-webos.asf.run-4f7cff?style=for-the-badge&logo=googlechrome&logoColor=white)](https://webos.asf.run)
 
-By **Tasmon Islam** · tasmon@outlook.com
+[![Runs in the browser](https://img.shields.io/badge/runs%20in-your%20browser-4f7cff?style=flat-square)](https://webos.asf.run)
+[![Works offline](https://img.shields.io/badge/works-offline-22c55e?style=flat-square)](#-works-offline)
+[![Installable PWA](https://img.shields.io/badge/installable-PWA-8b5cf6?style=flat-square)](#-install-webos-itself)
+[![No account](https://img.shields.io/badge/no-account%20needed-14b8a6?style=flat-square)](#-privacy)
+[![No tracking](https://img.shields.io/badge/no-tracking-f59e0b?style=flat-square)](#-privacy)
+[![Hosted on Vercel](https://img.shields.io/badge/hosted%20on-Vercel-000000?style=flat-square&logo=vercel&logoColor=white)](https://vercel.com)
+[![License: MIT](https://img.shields.io/badge/license-MIT-64748b?style=flat-square)](LICENSE)
+
+</div>
 
 ---
 
-## What it does
+## What is WebOS?
 
-- **Installs ZIP web apps**: drop a ZIP or folder on the desktop, pick a file, or paste a GitHub link (`owner/repo`).
-- **Runs them in windows**: drag, resize, snap to screen edges, minimise, maximise, full screen — or open in a browser tab.
-- **Works offline** once installed. Apps and the WebOS shell are stored in your browser.
-- **Each app keeps its own data**: `localStorage`, `sessionStorage` and IndexedDB are namespaced per app, so two apps never overwrite each other.
-- **Installable**: add WebOS itself to your desktop or phone home screen (PWA).
-- **Practical settings**: theme (auto / light / dark), accent colour, wallpapers (or your own picture), blur, animations, text size, corner style, icon size, taskbar position / auto-hide / clock format, window behaviour, PIN lock screen, backup & restore, storage protection, factory reset.
-- **No server, no accounts, no tracking.** Everything stays in the browser.
+WebOS gives you a desktop inside your web browser. You can take any static website, the kind people upload to GitHub as a ZIP, and **install it as an app**. It gets its own icon on your desktop, opens in its own window, and keeps working without internet.
 
-## Keyboard shortcuts
+Use it to:
+
+- Keep your favourite small web tools, games and utilities in one place.
+- Try a website or project from GitHub in seconds, with no setup.
+- Carry your apps to any device by backing them up in a single file.
+- Run your own HTML projects like real apps.
+
+**Open it now: [webos.asf.run](https://webos.asf.run)**
+
+---
+
+## ✨ What you can do
+
+| | |
+| --- | --- |
+| 📦 **Install apps** | From a ZIP file, a folder, a GitHub link, or a web address |
+| 🪟 **Use windows** | Move, resize, snap to screen edges, minimise, maximise |
+| 🖥️ **A real desktop** | Icons, taskbar, start menu with search, notifications, calendar |
+| 🎨 **Make it yours** | Light or dark theme, accent colours, wallpapers or your own photo |
+| ⚙️ **Practical settings** | Taskbar position, clock format, icon size, text size, window behaviour |
+| 🔒 **Lock it** | Optional PIN lock screen |
+| 💾 **Back up everything** | One file holds all your apps and settings |
+| 📱 **Works on phones** | Windows open full screen and you switch with the taskbar |
+
+---
+
+## 🚀 Get started in one minute
+
+1. **Open** [webos.asf.run](https://webos.asf.run).
+2. **Get a ZIP** of a website. On GitHub, open any project and choose **Code → Download ZIP**.
+3. **Drag the ZIP onto the desktop.** Or click **Install app** and pick the file.
+4. **Press Install**, then double-click the new icon to open your app.
+
+You can also paste a GitHub address such as `owner/repo`, and WebOS downloads and installs it for you.
+
+> Need help later? Open **Help** inside WebOS for a full guide.
+
+---
+
+## 📦 Which apps work?
+
+**Works:**
+- Any website ZIP that contains an `index.html`.
+- Plain HTML, CSS and JavaScript sites.
+- React, Vue, Svelte and Vite projects, when you install the **built** folder (usually `dist` or `build`).
+
+**Does not work:**
+- Apps that need their own server or database (PHP, Node, Python and similar).
+- Raw source code that has not been built.
+
+---
+
+## 📴 Works offline
+
+Everything you install is stored in your browser on your device. Once an app is installed, it opens without internet. Apps that load data from online services still need a connection for that part.
+
+## 📲 Install WebOS itself
+
+WebOS can be installed like a normal app, so it opens in its own window and works offline.
+
+- **Android (Chrome):** menu ⋮ → *Install app* or *Add to Home screen*
+- **iPhone (Safari):** Share → *Add to Home Screen*
+- **Desktop Chrome or Edge:** click the install icon in the address bar
+
+---
+
+## ⌨️ Keyboard shortcuts
 
 | Keys | Action |
 | --- | --- |
-| `Alt + A` | Open the start menu |
-| `Alt + I` | Install an app |
-| `Alt + W` | Close the active window |
-| `Alt + M` | Minimise the active window |
-| `Alt + D` | Show the desktop |
+| `Alt` + `A` | Open the start menu |
+| `Alt` + `I` | Install an app |
+| `Alt` + `W` | Close the active window |
+| `Alt` + `M` | Minimise the active window |
+| `Alt` + `D` | Show the desktop |
 
-## Which ZIP files work?
+---
 
-Any ZIP that contains an `index.html` (it may sit inside a top folder, like GitHub's "Download ZIP"). Plain HTML/CSS/JS sites, and the **built** output (`dist/`, `build/`) of React / Vue / Svelte / Vite projects.
+## 🔗 Share an app with a link
 
-Optional: add a `webos.json` next to `index.html` to control how the app appears.
-
-```json
-{
-  "name": "My App",
-  "description": "What it does",
-  "version": "1.0.0",
-  "author": "You",
-  "icon": "images/icon.png",
-  "width": 900,
-  "height": 640,
-  "display": "window"
-}
-```
-
-`display` can be `window`, `fullscreen` (opens maximised) or `tab` (opens in a browser tab).
-
-Without a `webos.json`, WebOS reads the name, description and icon from `manifest.json`, `<title>`, `<meta>` and `<link rel="icon">`.
-
-Apps can talk to WebOS through a small global API:
-
-```js
-WebOS.notify('Saved', 'Your note was saved'); // shows a notification
-WebOS.setTitle('My App – Inbox');              // changes the window title
-WebOS.close();                                 // closes the window
-WebOS.theme; WebOS.accent;                     // current theme + accent colour
-addEventListener('webos:env', e => {});        // fires when the theme changes
-```
-
-## Share an install link
-
-Anyone can install an app with one click:
+Send someone a link that installs an app in one click:
 
 ```
 https://webos.asf.run/#install=github:owner/repo
@@ -72,59 +114,44 @@ https://webos.asf.run/#install=https://example.com/app.zip
 
 ---
 
-## Deploy: GitHub + Vercel + webos.asf.run
+## 💾 Your data and backups
 
-### 1. Put the files on GitHub
-1. Go to <https://github.com/new>, name the repository `webos`, keep it **Public**, click **Create repository**.
-2. Click **uploading an existing file**, drag in **every file from this folder** (not the folder itself), and click **Commit changes**.
+- Everything stays **in your browser, on your device**. Nothing is uploaded.
+- Clearing your browser's site data for webos.asf.run removes your apps, so make a backup first.
+- **Back up:** Settings → Storage & backup → **Export everything**.
+- **Restore:** Settings → Storage & backup → **Import a backup**, on any device.
 
-### 2. Deploy on Vercel
-1. Go to <https://vercel.com/new> and import the `webos` repository.
-2. **Framework Preset:** `Other`. Leave Build Command and Output Directory empty. Click **Deploy**.
+## 🔐 Privacy
 
-### 3. Connect webos.asf.run
-1. In Vercel open the project → **Settings → Domains** → type `webos.asf.run` → **Add**.
-2. Vercel shows a DNS record. Where you manage the DNS for **asf.run**, add:
-
-   | Type | Name | Value |
-   | --- | --- | --- |
-   | `CNAME` | `webos` | `cname.vercel-dns.com` |
-
-3. Wait a few minutes until Vercel shows a green tick. HTTPS is automatic.
-
-> HTTPS is required — service workers (which power the app installer) only run on secure sites. Vercel provides this for free.
-
-### Updating later
-Edit or upload files on GitHub — Vercel redeploys automatically. Users get the new version the next time they open WebOS online. If you add or rename files, also update the `SHELL` list at the top of `sw.js` so they work offline.
+- No accounts, no tracking, no analytics.
+- Apps run on the same address as WebOS, so they are not fully isolated from one another. **Only install apps from people you trust.**
+- The PIN lock keeps casual visitors out. It is not encryption.
 
 ---
 
-## Project structure
+## ❓ Quick answers
 
-| File | Purpose |
-| --- | --- |
-| `index.html`, `style.css` | The desktop page and all styling |
-| `main.js` | Shell: desktop, taskbar, start menu, notifications, lock screen |
-| `wm.js` | Window manager |
-| `sw.js` | Service worker: serves installed apps from storage, works offline |
-| `installer.js`, `install-ui.js` | ZIP / folder / GitHub reading, app detection, install dialog |
-| `app-manager.js`, `app-settings.js`, `app-help.js`, `app-about.js` | Built-in apps |
-| `db.js`, `settings.js`, `wallpaper.js`, `tile.js`, `ui.js`, `icons.js`, `pwa.js`, `config.js` | Support modules |
-| `jszip.min.js` | ZIP reader (JSZip, MIT) |
-| `manifest.webmanifest`, `icon*.svg/png` | PWA metadata and icons |
-| `vercel.json` | Headers for Vercel |
-| `USER-GUIDE.md` | Plain-language guide for people using WebOS |
+**An app will not open.** WebOS needs service workers, which are switched off in private or incognito windows. Use a normal window.
 
-## How it works
+**The app window is blank.** The ZIP is probably source code. Install the `dist` or `build` folder instead.
 
-Installed apps are stored as files in IndexedDB. The service worker answers requests to `/apps/<app-id>/…` from that storage and injects a small script into each app's HTML that namespaces its storage and exposes the `WebOS` API. Apps are shown in `<iframe>`s.
+**A GitHub install fails.** The repository must be public. You can also download the ZIP and drop it in.
 
-## Security note
+**How do I update an app?** Install the newer ZIP again. WebOS offers to update it and keeps its saved data.
 
-Apps run on the **same origin** as WebOS (a static host cannot give every app its own domain), so an installed app *could* read other apps' stored data. Only install apps you trust. For stronger isolation you can host WebOS on a wildcard domain and serve each app from its own subdomain.
+**How do I start over?** Settings → Storage & backup → Factory reset.
 
-The PIN lock is a convenience lock, not encryption.
+---
 
-## Licence
+## 🛠️ For app makers and developers
 
-MIT — see `LICENSE`. JSZip is © Stuart Knightley, MIT licensed.
+Want to make your app look right inside WebOS, or host your own copy? See **[DEVELOPERS.md](DEVELOPERS.md)**.
+
+---
+
+<div align="center">
+
+Made by **Tasmon Islam** · [tasmon@outlook.com](mailto:tasmon@outlook.com)
+Released under the [MIT License](LICENSE)
+
+</div>
