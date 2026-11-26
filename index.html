@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>WebOS</title>
+  <meta name="description" content="WebOS is an operating system that runs in your browser. Install ZIP web apps and run them in windows, offline.">
+  <meta name="author" content="Tasmon Islam">
+  <meta name="theme-color" content="#10131a">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/icon-192.png">
+  <link rel="stylesheet" href="/style.css">
+  <script>
+    // Apply saved theme before first paint to avoid a flash.
+    try {
+      var s = JSON.parse(localStorage.getItem('webos.settings.v1') || '{}');
+      var t = s.theme || 'auto';
+      if (t === 'auto') t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      document.documentElement.dataset.theme = t;
+    } catch (e) {}
+  </script>
+</head>
+<body>
+  <div id="wallpaper" aria-hidden="true"></div>
+  <main id="desktop" aria-label="Desktop"></main>
+  <div id="deskclock" aria-hidden="true"><div class="dc-time"></div><div class="dc-date"></div></div>
+  <div id="windows"></div>
+  <div id="snap-preview"></div>
+  <div id="tb-hot"></div>
+  <nav id="taskbar" aria-label="Taskbar"></nav>
+  <div id="panels"></div>
+  <div id="modal-root"></div>
+  <div id="toasts" aria-live="polite"></div>
+  <div id="dropzone"><div><span class="dz-ico"></span><strong>Drop to install</strong><span>ZIP files or folders</span></div></div>
+  <div id="lock" hidden></div>
+  <div id="boot"><div class="boot-inner"><img src="/icon.svg" alt="" width="84" height="84"><div class="boot-name">WebOS</div><div class="boot-bar"><i></i></div></div></div>
+  <noscript><p style="position:fixed;inset:0;display:grid;place-items:center;background:#10131a;color:#fff;font:16px system-ui;z-index:99999;margin:0">WebOS needs JavaScript to run.</p></noscript>
+  <script src="/jszip.min.js"></script>
+  <script type="module" src="/main.js"></script>
+</body>
+</html>
