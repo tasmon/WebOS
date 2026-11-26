@@ -154,7 +154,7 @@ export function openInstaller(opts = {}) {
           if (gh) {
             const g = inst.parseGitHubUrl(v);
             if (!g) return source('That does not look like a GitHub repository. Try owner/repo.');
-            load((bump) => inst.readGitHub(g, bump), { source: 'github', sourceUrl: v, name: g.repo, subdir: g.subdir });
+            load((bump) => inst.readGitHub(g, bump), { source: 'github', sourceUrl: v, name: g.repo, subdir: '' });
           } else load((bump) => inst.readUrlZip(v, bump), { source: 'url', sourceUrl: v, name: (v.split('/').pop() || '').replace(/\.zip.*$/i, '') });
         };
         input.addEventListener('keydown', (e) => e.key === 'Enter' && go());

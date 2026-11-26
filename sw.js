@@ -5,7 +5,7 @@
  */
 'use strict';
 
-const VERSION = '1.0.1';
+const VERSION = '1.0.2';
 const SHELL_CACHE = 'webos-shell-' + VERSION;
 // Keep in sync with the files in the repository.
 const SHELL = [

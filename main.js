@@ -40,6 +40,7 @@ const findApp = (id) => apps.find((a) => a.id === id);
 /* ================================================================= host */
 const host = {
   apps: () => apps,
+  deskItems: () => allDeskEntries().map((e) => ({ key: e.key, name: e.name, system: !!e.system })),
   onAppsChange: (fn) => (appSubs.add(fn), () => appSubs.delete(fn)),
   openApp,
   openSystem,
@@ -220,10 +221,11 @@ function sortedApps() {
   return [...apps].sort(by);
 }
 
-function dIcon(name, tile, onOpen, menu) {
-  const b = h('button', { class: 'dicon', title: name, 'aria-label': name }, tile, h('span', { class: 'dlabel' }, name));
+function dIcon(key, name, tile, onOpen, menu) {
+  const b = h('button', { class: 'dicon', title: name, 'aria-label': name, dataset: { key } }, tile, h('span', { class: 'dlabel' }, name));
   let last = 0;
   b.addEventListener('click', () => {
+    if (Date.now() - (b._dragEnd || 0) < 350) return; // the click that ends a drag is not an "open"
     $$sel(b);
     if (settings.get('openWith') === 'single' || isCoarse()) onOpen();
     else if (Date.now() - last < 450) onOpen();
@@ -233,15 +235,151 @@ function dIcon(name, tile, onOpen, menu) {
   b.addEventListener('contextmenu', (e) => {
     e.preventDefault();
     e.stopPropagation();
+    if (b._dragEnd && Date.now() - b._dragEnd < 600) return;
     $$sel(b);
     showMenu(e.clientX, e.clientY, menu());
   });
+  enableDrag(b, key);
   return b;
+}
+
+/* ---- icon placement: icons sit on a grid; positions are remembered per icon ---- */
+const GAP = 4;
+const PAD = 14;
+let deskItems = []; // [{ key, el }]
+let dragging = false;
+
+function deskMetrics() {
+  const d = $('#desktop');
+  const cs = getComputedStyle(d);
+  const cw = parseFloat(cs.getPropertyValue('--cell-w')) || 100;
+  const ch = parseFloat(cs.getPropertyValue('--cell-h')) || 124;
+  return {
+    cw,
+    ch,
+    cols: Math.max(1, Math.floor((d.clientWidth - PAD * 2 + GAP) / (cw + GAP))),
+    rows: Math.max(1, Math.floor((d.clientHeight - PAD * 2 + GAP) / (ch + GAP))),
+  };
+}
+const cellKey = (c, r) => c + ',' + r;
+
+/** Saved cells first; icons without a (valid, free) cell fill the first free cells, top to bottom. */
+function placement(m) {
+  const saved = settings.get('iconPos') || {};
+  const taken = new Map();
+  const pos = new Map();
+  const loose = [];
+  for (const it of deskItems) {
+    const p = saved[it.key];
+    const ok = Array.isArray(p) && Number.isInteger(p[0]) && Number.isInteger(p[1]) && p[0] >= 0 && p[0] < m.cols && p[1] >= 0 && p[1] < m.rows && !taken.has(cellKey(p[0], p[1]));
+    if (ok) {
+      taken.set(cellKey(p[0], p[1]), it.key);
+      pos.set(it.key, [p[0], p[1]]);
+    } else loose.push(it);
+  }
+  let c = 0;
+  let r = 0;
+  for (const it of loose) {
+    while (taken.has(cellKey(c, r))) {
+      if (++r >= m.rows) {
+        r = 0;
+        c++;
+      }
+    }
+    taken.set(cellKey(c, r), it.key);
+    pos.set(it.key, [c, r]);
+  }
+  return { pos, taken };
+}
+
+function layoutDesktop() {
+  if (dragging) return;
+  const m = deskMetrics();
+  const { pos } = placement(m);
+  for (const it of deskItems) {
+    const [c, r] = pos.get(it.key);
+    it.el.style.left = PAD + c * (m.cw + GAP) + 'px';
+    it.el.style.top = PAD + r * (m.ch + GAP) + 'px';
+  }
+}
+let layoutQueued = false;
+const queueLayout = () => {
+  if (layoutQueued) return;
+  layoutQueued = true;
+  requestAnimationFrame(() => ((layoutQueued = false), layoutDesktop()));
+};
+addEventListener('resize', queueLayout);
+
+function enableDrag(b, key) {
+  let st = null;
+  let cell = null;
+  let ghost = null;
+  const pointCell = (x, y, m) => [
+    Math.min(m.cols - 1, Math.max(0, Math.floor((x - PAD + GAP / 2) / (m.cw + GAP)))),
+    Math.min(m.rows - 1, Math.max(0, Math.floor((y - PAD + GAP / 2) / (m.ch + GAP)))),
+  ];
+  b.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    const r = b.getBoundingClientRect();
+    st = { id: e.pointerId, sx: e.clientX, sy: e.clientY, gx: e.clientX - r.left, gy: e.clientY - r.top, moved: false };
+  });
+  b.addEventListener('pointermove', (e) => {
+    if (!st || e.pointerId !== st.id) return;
+    if (!st.moved) {
+      if (Math.hypot(e.clientX - st.sx, e.clientY - st.sy) < 8) return; // a tap or a click, not a drag
+      st.moved = true;
+      dragging = true;
+      closeMenu();
+      b.setPointerCapture(e.pointerId);
+      b.classList.add('dragging');
+      $$sel(b);
+      ghost = h('div', { class: 'drop-cell' });
+      $('#desktop').append(ghost);
+    }
+    const dr = $('#desktop').getBoundingClientRect();
+    const m = deskMetrics();
+    b.style.left = e.clientX - dr.left - st.gx + 'px';
+    b.style.top = e.clientY - dr.top - st.gy + 'px';
+    cell = pointCell(e.clientX - dr.left, e.clientY - dr.top, m);
+    ghost.style.left = PAD + cell[0] * (m.cw + GAP) + 'px';
+    ghost.style.top = PAD + cell[1] * (m.ch + GAP) + 'px';
+  });
+  const finish = (e, cancelled) => {
+    if (!st || e.pointerId !== st.id) return;
+    const s = st;
+    st = null;
+    if (!s.moved) return;
+    dragging = false;
+    b.classList.remove('dragging');
+    ghost?.remove();
+    ghost = null;
+    b._dragEnd = Date.now();
+    if (cancelled || !cell) return layoutDesktop();
+    const m = deskMetrics();
+    const { pos, taken } = placement(m);
+    const next = {};
+    pos.forEach((v, k) => (next[k] = v)); // freeze everything where it is now, so nothing shuffles later
+    const other = taken.get(cellKey(cell[0], cell[1]));
+    if (other && other !== key) next[other] = pos.get(key); // dropped on another icon: swap places
+    next[key] = cell;
+    settings.set('iconPos', { ...(settings.get('iconPos') || {}), ...next });
+    layoutDesktop();
+  };
+  b.addEventListener('pointerup', (e) => finish(e, false));
+  b.addEventListener('pointercancel', (e) => finish(e, true));
 }
 function $$sel(el) {
   document.querySelectorAll('.dicon.sel').forEach((x) => x.classList.remove('sel'));
   el?.classList.add('sel');
 }
+
+const isHidden = (key) => settings.get('hiddenIcons').includes(key);
+function toggleHidden(key) {
+  const s = new Set(settings.get('hiddenIcons'));
+  s.has(key) ? s.delete(key) : s.add(key);
+  settings.set('hiddenIcons', [...s]);
+}
+const hideItem = (key) => ({ label: isHidden(key) ? 'Show on desktop' : 'Hide from desktop', icon: isHidden(key) ? 'eye' : 'eyeoff', onClick: () => toggleHidden(key) });
 
 function appMenu(app) {
   return [
@@ -252,6 +390,7 @@ function appMenu(app) {
     { label: 'Rename…', icon: 'edit', onClick: async () => { const v = await promptBox({ title: 'Rename app', label: 'Name', value: app.name }); if (v) host.rename(app, v.slice(0, 60)); } },
     { label: 'Export as ZIP', icon: 'upload', onClick: async () => { const t = toast('Preparing ZIP…', { timeout: 0 }); try { download(await exportAppZip(app), app.id + '.zip'); } catch (e) { toast(e.message, { kind: 'error' }); } t.close(); } },
     { label: 'Details', icon: 'info', onClick: () => openSystem('manager', app.id) },
+    hideItem('app:' + app.id),
     { separator: true },
     { label: 'Uninstall', icon: 'trash', danger: true, onClick: async () => { if (await confirmBox({ title: `Uninstall ${app.name}?`, message: 'The app and its saved data will be removed from this browser.', confirmLabel: 'Uninstall', danger: true })) host.uninstall(app); } },
   ];
@@ -260,22 +399,46 @@ function sysMenu(id) {
   return [
     { label: 'Open', icon: 'external', onClick: () => openSystem(id) },
     { label: settings.get('pinned').includes(id) ? 'Unpin from taskbar' : 'Pin to taskbar', icon: 'pin', onClick: () => host.toggleSysPin(id) },
+    hideItem('sys:' + id),
   ];
+}
+
+function allDeskEntries() {
+  const out = [];
+  for (const id of Object.keys(SYS)) out.push({ key: 'sys:' + id, name: SYS[id].title, system: true, tile: () => systemTile(SYS[id].icon, SYS[id].color), open: () => openSystem(id), menu: () => sysMenu(id) });
+  out.push({
+    key: 'sys:install',
+    name: 'Install app',
+    system: true,
+    tile: () => systemTile('plus', '#22c55e'),
+    open: () => host.install(),
+    menu: () => [{ label: 'Install app…', icon: 'plus', onClick: () => host.install() }, hideItem('sys:install')],
+  });
+  for (const app of sortedApps()) out.push({ key: 'app:' + app.id, name: app.name, tile: () => appTile(app), open: () => openApp(app), menu: () => appMenu(app) });
+  return out;
 }
 
 function drawDesktop() {
   const d = $('#desktop');
   d.replaceChildren();
-  if (settings.get('showSystemIcons')) {
-    for (const id of Object.keys(SYS)) d.append(dIcon(SYS[id].title, systemTile(SYS[id].icon, SYS[id].color), () => openSystem(id), () => sysMenu(id)));
-    d.append(dIcon('Install app', systemTile('plus', '#22c55e'), () => host.install(), () => [{ label: 'Install app…', icon: 'plus', onClick: () => host.install() }]));
+  deskItems = [];
+  const hidden = new Set(settings.get('hiddenIcons'));
+  for (const e of allDeskEntries()) {
+    if ((e.system && !settings.get('showSystemIcons')) || hidden.has(e.key)) continue;
+    const el = dIcon(e.key, e.name, e.tile(), e.open, e.menu);
+    d.append(el);
+    deskItems.push({ key: e.key, el });
   }
-  for (const app of sortedApps()) d.append(dIcon(app.name, appTile(app), () => openApp(app), () => appMenu(app)));
   if (!apps.length) {
     d.append(
       h('div', { class: 'empty-desktop' }, h('h2', null, 'Your desktop is empty'), h('p', null, 'Drop a ZIP file here or install your first web app.'), h('button', { class: 'btn primary', onclick: () => host.install() }, ico('plus', 16), 'Install app'))
     );
+  } else if (!deskItems.length) {
+    d.append(
+      h('div', { class: 'empty-desktop' }, h('h2', null, 'Your icons are hidden'), h('p', null, 'Your apps are still in the start menu.'), h('button', { class: 'btn primary', onclick: () => settings.patch({ hiddenIcons: [], showSystemIcons: true }) }, ico('eye', 16), 'Show all icons'))
+    );
   }
+  layoutDesktop();
 }
 
 $('#desktop').addEventListener('pointerdown', (e) => {
@@ -287,6 +450,8 @@ document.addEventListener('contextmenu', (e) => {
   showMenu(e.clientX, e.clientY, [
     { label: 'Install app…', icon: 'plus', onClick: () => host.install() },
     { label: 'Refresh', icon: 'refresh', onClick: () => reloadApps() },
+    { label: 'Auto arrange icons', icon: 'grid', onClick: () => settings.set('iconPos', {}) },
+    ...(settings.get('hiddenIcons').length ? [{ label: `Show hidden icons (${settings.get('hiddenIcons').length})`, icon: 'eye', onClick: () => settings.set('hiddenIcons', []) }] : []),
     { separator: true },
     { label: 'Change wallpaper', icon: 'image', onClick: () => openSystem('settings', 'appearance') },
     { label: 'Settings', icon: 'settings', onClick: () => openSystem('settings') },
@@ -659,7 +824,8 @@ async function boot() {
   drawTaskbar();
   initSW();
   settings.subscribe((keys) => {
-    if (keys.some((k) => ['showSystemIcons', 'sortApps', '*'].includes(k))) drawDesktop();
+    if (keys.some((k) => ['showSystemIcons', 'sortApps', 'hiddenIcons', '*'].includes(k))) drawDesktop();
+    else if (keys.some((k) => ['iconPos', 'iconSize', 'fontScale', 'showLabels', 'taskbarPos', 'taskbarAutoHide'].includes(k))) queueLayout();
     if (keys.some((k) => ['pinned', 'taskbarLabels', '*'].includes(k))) drawTaskbar();
     if (keys.some((k) => ['clock24', 'clockSeconds', 'showDate', 'desktopClock', '*'].includes(k))) tickClock();
   });
@@ -670,10 +836,11 @@ async function boot() {
   setTimeout(() => $('#boot').remove(), 700);
 
   if (settings.get('lockOnStart') && hasPin()) showLock();
+  const hadInstallLink = location.hash.startsWith('#install='); // handleDeepLink clears the hash
   handleDeepLink();
   if (settings.get('firstRun')) {
     settings.set('firstRun', false);
-    if (!apps.length && !location.hash.startsWith('#install=')) setTimeout(showWelcome, 450);
+    if (!apps.length && !hadInstallLink) setTimeout(showWelcome, 450);
   }
 }
 

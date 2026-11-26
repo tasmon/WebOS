@@ -20,6 +20,8 @@ export const DEFAULTS = {
   sortApps: 'name', // name | newest | oldest
   openWith: 'double', // double | single
   desktopClock: true,
+  hiddenIcons: [], // desktop icon keys the user hid
+  iconPos: {}, // desktop icon key -> [column, row]
   // windows
   openMaximized: false,
   snapAssist: true,

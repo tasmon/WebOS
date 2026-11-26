@@ -52,7 +52,10 @@ export function buildHelp(host) {
         'Drag a window by its title bar. Drag its edges or corners to resize.',
         'Drag a window to the left or right edge to fill half the screen, or to the top to maximise it.',
         'Double-click a title bar to maximise or restore.',
-        'Right-click an icon for Open, Pin to taskbar, Rename, Export as ZIP and Uninstall.',
+        'Drag an icon to move it. On a phone, touch and drag. Drop it on another icon to swap places.',
+        'Right-click (or long-press) an icon for Open, Pin to taskbar, Rename, Export as ZIP, Hide from desktop and Uninstall.',
+        ['Hidden icons stay in the start menu. Bring them back from the desktop menu (', code('Show hidden icons'), ') or Settings → Desktop.'],
+        'Right-click the desktop and choose Auto arrange icons to tidy everything.',
         'Right-click the desktop to install an app, change the wallpaper or open Settings.',
         'On a phone every window opens full screen. Use the taskbar to switch.'
       ),
@@ -76,7 +79,7 @@ export function buildHelp(host) {
       h('p', null, 'Open Settings from the desktop or the start menu. You can change:'),
       list(
         'Appearance: light, dark or automatic theme, accent colour, wallpaper (or your own picture), blur, animations, text size and corner style.',
-        'Desktop: icon size, labels, sorting, and single or double click to open.',
+        'Desktop: icon size, labels, sorting, which icons to show or hide, and single or double click to open.',
         'Windows: open maximised, snapping, remembering sizes, asking before closing, and opening apps in a browser tab.',
         'Taskbar: position, centred or left, auto-hide, clock format.',
         'Security: PIN lock and lock on start.',

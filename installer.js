@@ -91,33 +91,95 @@ async function fetchBlob(url, onProgress, label) {
   return new Blob(chunks, { type: 'application/zip' });
 }
 
-export async function readGitHub(gh, onProgress) {
-  const refs = gh.ref ? [gh.ref] : ['HEAD'];
-  const urls = [];
-  for (const r of refs) {
-    urls.push(`https://codeload.github.com/${gh.owner}/${gh.repo}/zip/${r === 'HEAD' ? 'HEAD' : 'refs/heads/' + r}`);
-    if (r !== 'HEAD') urls.push(`https://codeload.github.com/${gh.owner}/${gh.repo}/zip/refs/tags/${r}`);
-    urls.push(`https://api.github.com/repos/${gh.owner}/${gh.repo}/zipball${r === 'HEAD' ? '' : '/' + r}`);
+const RAW_TYPES = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml', ico: 'image/x-icon' };
+const encPath = (p) => p.split('/').map(encodeURIComponent).join('/');
+
+async function ghJson(url) {
+  let res;
+  try {
+    res = await fetch(url, { headers: { Accept: 'application/vnd.github+json' } });
+  } catch {
+    throw new InstallError("Couldn't reach GitHub. Check your internet connection and try again.");
   }
-  let blob = null;
-  let lastErr;
-  for (const u of urls) {
+  if (res.status === 404) throw Object.assign(new InstallError('Repository or branch not found. It must be public and spelled correctly.'), { notFound: true });
+  if (res.status === 403 || res.status === 429)
+    throw Object.assign(new InstallError('GitHub is limiting requests from your network for a few minutes. Wait a little, or download the ZIP and drop it in.'), { limited: true });
+  if (!res.ok) throw new InstallError(`GitHub returned an error (HTTP ${res.status}).`);
+  return res.json();
+}
+
+/** Lists every file of a repo: GitHub API first, jsDelivr as a backup. */
+async function listGitHub(gh) {
+  const base = `${gh.owner}/${gh.repo}`;
+  let refs = gh.ref ? [gh.ref] : [];
+  if (!refs.length) {
     try {
-      blob = await fetchBlob(u, onProgress, 'GitHub');
-      break;
+      refs = [(await ghJson(`https://api.github.com/repos/${base}`)).default_branch];
+    } catch (e) {
+      if (e.notFound) throw e;
+      refs = ['main', 'master'];
+    }
+  }
+  let lastErr;
+  for (const ref of refs) {
+    try {
+      const t = await ghJson(`https://api.github.com/repos/${base}/git/trees/${encPath(ref)}?recursive=1`);
+      return { ref, items: (t.tree || []).filter((x) => x.type === 'blob').map((x) => ({ full: x.path, size: x.size || 0 })) };
     } catch (e) {
       lastErr = e;
     }
   }
-  if (!blob) {
-    throw new InstallError(
-      lastErr?.message?.includes('HTTP 404')
-        ? 'Repository not found. It must be public and the address must be correct.'
-        : "Couldn't download that repository. Check the address and that it is public."
-    );
+  for (const ref of refs) {
+    try {
+      const r = await fetch(`https://data.jsdelivr.com/v1/packages/gh/${base}@${encodeURIComponent(ref)}?structure=flat`);
+      if (r.ok) {
+        const j = await r.json();
+        return { ref, items: (j.files || []).map((f) => ({ full: String(f.name).replace(/^\//, ''), size: f.size || 0 })) };
+      }
+    } catch {}
   }
-  const files = await readZipFile(blob);
-  return files;
+  throw lastErr || new InstallError("Couldn't read that repository. Check the address and that it is public.");
+}
+
+export async function readGitHub(gh, onProgress) {
+  const { ref, items } = await listGitHub(gh);
+  let files = items.filter((i) => i.full && !SKIP.test(i.full)).map((i) => ({ ...i, path: i.full }));
+  if (gh.subdir) {
+    const pre = norm(gh.subdir) + '/';
+    files = files.filter((i) => i.path.startsWith(pre)).map((i) => ({ ...i, path: i.path.slice(pre.length) }));
+    if (!files.length) throw new InstallError('That folder was not found in the repository.');
+  }
+  const root = chooseRoot(files.map((f) => f.path));
+  if (root === null) throw new InstallError(NO_INDEX);
+  if (root) files = files.filter((f) => f.path.startsWith(root + '/')).map((f) => ({ ...f, path: f.path.slice(root.length + 1) }));
+  if (files.length > MAX_FILES) throw new InstallError(`Too many files (${files.length}). The limit is ${MAX_FILES}.`);
+  if (files.reduce((n, f) => n + f.size, 0) > MAX_TOTAL) throw new InstallError('This app is larger than 400 MB, which is more than a browser can safely store.');
+
+  const rawBase = `https://raw.githubusercontent.com/${gh.owner}/${gh.repo}/${encPath(ref)}/`;
+  const out = new Array(files.length);
+  let next = 0;
+  let done = 0;
+  const worker = async () => {
+    while (next < files.length) {
+      const i = next++;
+      const f = files[i];
+      let blob = null;
+      for (let attempt = 0; attempt < 3 && !blob; attempt++) {
+        try {
+          const r = await fetch(rawBase + encPath(f.full));
+          if (r.ok) blob = await r.blob();
+          else if (r.status === 404) break;
+        } catch {}
+      }
+      if (!blob) throw new InstallError(`Couldn't download “${f.path}” from GitHub. Try again, or download the ZIP and drop it in.`);
+      const type = RAW_TYPES[(f.path.split('.').pop() || '').toLowerCase()];
+      if (type) blob = new Blob([blob], { type });
+      out[i] = { path: f.path, getBlob: async () => blob };
+      onProgress?.(++done / files.length);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(8, files.length) }, worker));
+  return out;
 }
 
 export async function readUrlZip(url, onProgress) {
@@ -132,6 +194,18 @@ export async function readUrlZip(url, onProgress) {
 }
 
 /* ---------------------------------------------------------------- inspect */
+const NO_INDEX =
+  "No index.html found. WebOS installs static web apps (HTML/CSS/JS). If this is a React/Vue project, install the built version (usually the 'dist' or 'build' folder).";
+const BUILD_DIR = /(^|\/)(dist|build|public|docs)$/;
+
+/** Picks the folder that holds the app: the shallowest index.html, preferring dist/build/docs over source folders. */
+export function chooseRoot(paths) {
+  const idx = [...new Set(paths.filter((p) => /(^|\/)index\.html?$/i.test(p)).map(dirOf))];
+  if (!idx.length) return null;
+  const rank = (d) => (BUILD_DIR.test(d) ? 0 : 1);
+  return idx.sort((a, b) => depth(a) - depth(b) || rank(a) - rank(b) || a.length - b.length)[0];
+}
+
 const dirOf = (p) => (p.includes('/') ? p.slice(0, p.lastIndexOf('/')) : '');
 const depth = (p) => (p ? p.split('/').length : 0);
 
@@ -152,19 +226,8 @@ export async function inspect(files, { subdir = '', fallbackName = '' } = {}) {
     if ([...paths].some((p) => p.startsWith(cand + '/'))) root = cand;
   }
   if (root === null) {
-    const idx = files.filter((f) => /(^|\/)index\.html?$/i.test(f.path)).map((f) => dirOf(f.path));
-    if (!idx.length) {
-      throw new InstallError(
-        "No index.html found. WebOS installs static web apps (HTML/CSS/JS). If this is a React/Vue project, install the built version (usually the 'dist' or 'build' folder)."
-      );
-    }
-    root = idx.sort((a, b) => depth(a) - depth(b) || a.length - b.length)[0];
-    // prefer a conventional build folder when the repo has both source and a build
-    const rootIsTop = depth(root) <= 1;
-    if (!rootIsTop) {
-      const better = idx.find((d) => /(^|\/)(dist|build|public|docs)$/.test(d) && depth(d) <= depth(root) + 1);
-      if (better && depth(better) < depth(root)) root = better;
-    }
+    root = chooseRoot(files.map((f) => f.path));
+    if (root === null) throw new InstallError(NO_INDEX);
   }
   const prefix = root ? root + '/' : '';
   const inRoot = files.filter((f) => f.path.startsWith(prefix)).map((f) => ({ ...f, path: f.path.slice(prefix.length) }));

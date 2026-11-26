@@ -114,9 +114,19 @@ export function buildSettings(host, startSection = 'appearance') {
     ...group('Icons',
       row('Icon size', null, seg('iconSize', [{ value: 'small', label: 'Small' }, { value: 'medium', label: 'Medium' }, { value: 'large', label: 'Large' }])),
       toggle('showLabels', 'Show names under icons'),
-      toggle('showSystemIcons', 'Show system icons', 'App Manager, Settings and About on the desktop.'),
+      toggle('showSystemIcons', 'Show system icons', 'App Manager, Settings, Help, About and Install app on the desktop.'),
       row('Sort apps by', null, selectEl([{ value: 'name', label: 'Name' }, { value: 'newest', label: 'Newest first' }, { value: 'oldest', label: 'Oldest first' }], settings.get('sortApps'), (v) => settings.set('sortApps', v))),
       row('Open icons with', null, seg('openWith', [{ value: 'single', label: 'Single click' }, { value: 'double', label: 'Double click' }]))
+    ),
+    ...group('Icons on the desktop',
+      ...host.deskItems().map((it) =>
+        row(it.name, it.system ? 'System' : null, switchEl(!settings.get('hiddenIcons').includes(it.key), (on) => {
+          const hidden = new Set(settings.get('hiddenIcons'));
+          on ? hidden.delete(it.key) : hidden.add(it.key);
+          settings.set('hiddenIcons', [...hidden]);
+        }))
+      ),
+      row('Icon positions', 'Drag an icon to move it. On a phone, touch and drag.', h('button', { class: 'btn small', onclick: () => { settings.set('iconPos', {}); toast('Icons arranged.', { kind: 'success' }); } }, 'Auto arrange'))
     ),
     ...group('Widgets', toggle('desktopClock', 'Big clock on the desktop')),
   ];

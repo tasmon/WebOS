@@ -43,6 +43,7 @@ Use it to:
 | 📦 **Install apps** | From a ZIP file, a folder, a GitHub link, or a web address |
 | 🪟 **Use windows** | Move, resize, snap to screen edges, minimise, maximise |
 | 🖥️ **A real desktop** | Icons, taskbar, start menu with search, notifications, calendar |
+| ✋ **Arrange your icons** | Drag icons anywhere, hide the ones you do not need, auto arrange in one tap |
 | 🎨 **Make it yours** | Light or dark theme, accent colours, wallpapers or your own photo |
 | ⚙️ **Practical settings** | Taskbar position, clock format, icon size, text size, window behaviour |
 | 🔒 **Lock it** | Optional PIN lock screen |
@@ -58,7 +59,7 @@ Use it to:
 3. **Drag the ZIP onto the desktop.** Or click **Install app** and pick the file.
 4. **Press Install**, then double-click the new icon to open your app.
 
-You can also paste a GitHub address such as `owner/repo`, and WebOS downloads and installs it for you.
+You can also paste a GitHub address such as `owner/repo` or a full `github.com` link, and WebOS fetches the files and installs them for you.
 
 > Need help later? Open **Help** inside WebOS for a full guide.
 
