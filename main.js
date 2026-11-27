@@ -13,6 +13,8 @@ import { buildAppManager } from './app-manager.js';
 import { buildSettings } from './app-settings.js';
 import { buildAbout } from './app-about.js';
 import { buildHelp } from './app-help.js';
+import { buildStore } from './app-store.js';
+import { post as apiPost } from './store-api.js';
 import { canInstall, promptInstall, onInstallChange } from './pwa.js';
 
 /* ================================================================= state */
@@ -22,6 +24,7 @@ const notifications = [];
 const instances = new Map(); // window key -> { destroy, go }
 
 const SYS = {
+  store: { title: 'Store', icon: 'store', color: '#f97316', w: 960, h: 640 },
   manager: { title: 'App Manager', icon: 'package', color: '#4f7cff', w: 880, h: 580 },
   settings: { title: 'Settings', icon: 'settings', color: '#64748b', w: 920, h: 620 },
   help: { title: 'Help', icon: 'help', color: '#f59e0b', w: 720, h: 620 },
@@ -54,6 +57,22 @@ const host = {
       announceInstall(result, openApp);
     }
     return result;
+  },
+  /** Installs an app listed in the Store (always from its GitHub repository) and remembers which listing it came from. */
+  async installFromStore(sa) {
+    let prefill = `${sa.owner}/${sa.repo}`;
+    if (sa.ref || sa.subdir) prefill = `https://github.com/${sa.owner}/${sa.repo}/tree/${encodeURIComponent(sa.ref || 'HEAD')}${sa.subdir ? '/' + sa.subdir : ''}`;
+    const result = await openInstaller({ tab: 'github', prefill, autoStart: true });
+    if (!result) return null;
+    result.app.storeId = sa.id;
+    await db.putApp(result.app);
+    await reloadApps();
+    announceInstall(result, openApp);
+    let counted = false;
+    try {
+      counted = !!(await apiPost('store/apps/' + encodeURIComponent(sa.id) + '/download')).counted;
+    } catch {}
+    return { result, counted };
   },
   async uninstall(app, silent = false) {
     wm.closeByApp(app.id);
@@ -219,11 +238,15 @@ function openSystem(id, arg) {
     wm.focus(existing.id);
     if (id === 'settings' && arg) instances.get(key)?.go?.(arg);
     if (id === 'manager' && arg) instances.get(key)?.select?.(arg);
+    if (id === 'store' && arg) instances.get(key)?.go?.(arg.view, arg.id);
     return;
   }
   let inst;
   let content;
-  if (id === 'manager') {
+  if (id === 'store') {
+    inst = buildStore(host);
+    content = inst.el;
+  } else if (id === 'manager') {
     inst = buildAppManager(host);
     content = inst.el;
   } else if (id === 'settings') {
@@ -488,6 +511,7 @@ document.addEventListener('contextmenu', (e) => {
   if (e.target.closest('.dicon, input, textarea, .win, .panel, .modal, #taskbar')) return;
   e.preventDefault();
   showMenu(e.clientX, e.clientY, [
+    { label: 'Open Store', icon: 'store', onClick: () => openSystem('store') },
     { label: 'Install app…', icon: 'plus', onClick: () => host.install() },
     { label: 'Refresh', icon: 'refresh', onClick: () => reloadApps() },
     { label: 'Auto arrange icons', icon: 'grid', onClick: () => settings.set('iconPos', {}) },
@@ -851,7 +875,7 @@ function showWelcome() {
 /* ================================================================== boot */
 async function boot() {
   const started = performance.now();
-  if (settings.get('firstRun') && !settings.get('pinned').length) settings.patch({ pinned: ['manager', 'settings', 'help'] });
+  if (settings.get('firstRun') && !settings.get('pinned').length) settings.patch({ pinned: ['store', 'manager', 'settings', 'help'] });
   applyWallpaper();
   buildTaskbar();
   tickClock();
@@ -886,6 +910,10 @@ async function boot() {
 
 /** Share links:  https://webos.asf.run/#install=github:owner/repo   or   #install=https://…/app.zip */
 function handleDeepLink() {
+  if (location.hash === '#store') {
+    history.replaceState(null, '', location.pathname + location.search);
+    return openSystem('store');
+  }
   const m = /^#install=(.+)$/.exec(location.hash);
   if (!m) return;
   history.replaceState(null, '', location.pathname + location.search);

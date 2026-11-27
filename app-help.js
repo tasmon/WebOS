@@ -29,6 +29,17 @@ export function buildHelp(host) {
       ],
       true
     ),
+    section('store', 'The Store', [
+      list(
+        'Open Store from the desktop or start menu to browse apps. Every app comes from GitHub and is approved before it is listed.',
+        'Search, pick a category, or sort by downloads, rating or newest.',
+        ['Press ', h('b', null, 'Get'), ' to install. Installed apps show ', h('b', null, 'Open'), '.'],
+        'Ratings and comments come from people with a WebOS account. Sign in to leave your own.',
+        'To suggest an app, create an account and choose Request an app. Pick security questions when you register: they let you reset a forgotten password.',
+        ['You can also email ', h('a', { href: 'mailto:' + OS.email }, OS.email), ' to ask for a listing.']
+      ),
+      h('p', null, h('button', { class: 'btn', onclick: () => host.openSystem('store') }, ico('store', 16), 'Open Store')),
+    ]),
     section('package', 'Ways to install an app', [
       list(
         [h('b', null, 'ZIP file: '), 'drop it on the desktop or pick it with the file chooser.'],
@@ -115,7 +126,7 @@ export function buildHelp(host) {
     ]),
     section('shield', 'Privacy and safety', [
       list(
-        'No accounts, no tracking, no analytics.',
+        'You do not need an account to use WebOS. An account is only used in the Store for ratings, comments and requests. No tracking, no analytics.',
         'Apps run on the same address as WebOS, so they are not fully isolated from each other. Only install apps from people you trust.',
         'The PIN lock keeps casual visitors out. It is not encryption.'
       ),

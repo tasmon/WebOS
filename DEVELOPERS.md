@@ -73,6 +73,46 @@ To rebrand, edit `config.js` (name, author, email, domain).
 
 ---
 
+## Set up the Store (accounts, ratings, admin)
+
+The Store needs a small database and an admin password. It takes about 10 minutes and uses free plans.
+
+### 1. Add the backend file to GitHub
+The file **must** sit in a folder called `api`, and its name is exactly `[...route].js` (square brackets and three dots included).
+1. In your GitHub repository click **Add file → Create new file**.
+2. In the name box type `api/[...route].js`. Typing the `/` makes the folder.
+3. Paste the full content of `[...route].js` into the editor and click **Commit changes**.
+
+### 2. Create the database (free)
+1. In Vercel open your project → **Storage** tab → **Create Database** (or **Marketplace**).
+2. Choose **Upstash → Redis**, pick the free plan and a region near you, and create it.
+3. When asked, **connect it to your WebOS project** (all environments). Vercel adds the `KV_REST_API_URL` and `KV_REST_API_TOKEN` variables for you.
+
+### 3. Set your admin password
+1. Vercel → your project → **Settings → Environment Variables**.
+2. **Key:** `ADMIN_PASSWORD`  **Value:** a long password only you know. Tick Production, Preview and Development. Click **Save**.
+3. Optional extras:
+   - `GITHUB_TOKEN`: a GitHub token with no permissions (create one at <https://github.com/settings/tokens>). It makes checking submitted repositories more reliable.
+   - `ADMIN_EMAIL`: only if you want a different admin email. The default is `tasmon@outlook.com`.
+   - `SESSION_SECRET`: any long random text, to sign login cookies. Optional.
+
+### 4. Redeploy
+Vercel → **Deployments** → the latest one → **⋯ → Redeploy**. Variables only apply to new deployments.
+
+### 5. Open the admin page
+Go to `https://webos.asf.run/admin` and sign in with `tasmon@outlook.com` and your `ADMIN_PASSWORD`. The sign-in screen tells you if the database or the password is still missing.
+
+### How the Store works
+- Only **public GitHub repositories** with an `index.html` (or a built `dist`/`build`/`docs` folder) can be listed.
+- People need a free WebOS account to send a request. They pick security questions so they can reset a forgotten password. There is no email service, so emails are not verified.
+- New requests wait in **Waiting**. Use **Test install** to try the app, then **Approve** or **Reject**.
+- The publisher name comes from the GitHub profile of the repository owner.
+- Downloads are counted once per person per app per day. Only signed-in accounts can rate and comment, and you can delete any comment in **Published → Reviews**.
+- People can also email you for a listing; add those apps yourself with **Add app**.
+- **Only approve apps you have looked at.** Apps share one origin with WebOS (see the security note below).
+
+---
+
 ## Project structure
 
 | File | Purpose |
@@ -82,7 +122,10 @@ To rebrand, edit `config.js` (name, author, email, domain).
 | `wm.js` | Window manager |
 | `sw.js` | Service worker: serves installed apps from storage, works offline |
 | `installer.js`, `install-ui.js` | ZIP / folder / GitHub reading, app detection, install dialog |
-| `app-manager.js`, `app-settings.js`, `app-help.js`, `app-about.js` | Built-in apps |
+| `app-manager.js`, `app-settings.js`, `app-help.js`, `app-about.js`, `app-store.js` | Built-in apps |
+| `store-api.js` | Browser side of the Store API |
+| `api/[...route].js` | The Store backend (one Vercel function: accounts, listings, reviews, admin) |
+| `admin.html`, `admin.js`, `admin.css` | Admin dashboard at `/admin` |
 | `db.js`, `settings.js`, `wallpaper.js`, `tile.js`, `ui.js`, `icons.js`, `pwa.js`, `config.js` | Support modules |
 | `jszip.min.js` | ZIP reader (JSZip, MIT) |
 | `manifest.webmanifest`, `icon*.svg/png` | PWA metadata and icons |

@@ -12,7 +12,7 @@ Install websites as apps, open them in windows, and use them even offline.
 [![Runs in the browser](https://img.shields.io/badge/runs%20in-your%20browser-4f7cff?style=flat-square)](https://webos.asf.run)
 [![Works offline](https://img.shields.io/badge/works-offline-22c55e?style=flat-square)](#-works-offline)
 [![Installable PWA](https://img.shields.io/badge/installable-PWA-8b5cf6?style=flat-square)](#-install-webos-itself)
-[![No account](https://img.shields.io/badge/no-account%20needed-14b8a6?style=flat-square)](#-privacy)
+[![No account](https://img.shields.io/badge/account-optional-14b8a6?style=flat-square)](#-privacy)
 [![No tracking](https://img.shields.io/badge/no-tracking-f59e0b?style=flat-square)](#-privacy)
 [![Hosted on Vercel](https://img.shields.io/badge/hosted%20on-Vercel-000000?style=flat-square&logo=vercel&logoColor=white)](https://vercel.com)
 [![License: MIT](https://img.shields.io/badge/license-MIT-64748b?style=flat-square)](LICENSE)
@@ -40,6 +40,7 @@ Use it to:
 
 | | |
 | --- | --- |
+| 🛍️ **Store** | Browse approved GitHub apps, see ratings, downloads and comments, and install in one tap |
 | 📦 **Install apps** | From a ZIP file, a folder, a GitHub link, or a web address |
 | 🪟 **Use windows** | Move, resize, snap to screen edges, minimise, maximise |
 | 🖥️ **A real desktop** | Icons, taskbar, start menu with search, notifications, calendar |
@@ -75,6 +76,21 @@ You can also paste a GitHub address such as `owner/repo` or a full `github.com` 
 **Does not work:**
 - Apps that need their own server or database (PHP, Node, Python and similar).
 - Raw source code that has not been built.
+
+---
+
+## 🛍️ The Store
+
+Open **Store** on the desktop to find apps made by other people.
+
+- **Every app comes from GitHub** and is approved before it appears. The publisher name is the one on their GitHub profile.
+- **Search, filter and sort** by most downloaded, top rated or newest.
+- **Ratings, downloads and comments** help you choose. Sign in with a free WebOS account to rate or comment.
+- **Install in one tap.** The app is saved on your device like any other.
+- **Want an app listed?** Create an account and press **Request an app**, or email [tasmon@outlook.com](mailto:tasmon@outlook.com).
+- Forgot your password? Answer your security questions to set a new one.
+
+Your installed apps still never leave your device. An account is only needed for the Store.
 
 ---
 
@@ -124,7 +140,7 @@ https://webos.asf.run/#install=https://example.com/app.zip
 
 ## 🔐 Privacy
 
-- No accounts, no tracking, no analytics.
+- No account is needed to use WebOS. An account is only for rating, commenting and requesting apps in the Store. No tracking, no analytics.
 - Apps run on the same address as WebOS, so they are not fully isolated from one another. **Only install apps from people you trust.**
 - The PIN lock keeps casual visitors out. It is not encryption.
 
