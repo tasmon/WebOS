@@ -549,11 +549,7 @@ function drawDesktop() {
     d.append(el);
     deskItems.push({ key: e.key, el });
   }
-  if (!apps.length) {
-    d.append(
-      h('div', { class: 'empty-desktop' }, h('h2', null, 'Your desktop is empty'), h('p', null, 'Drop a ZIP file here or install your first web app.'), h('button', { class: 'btn primary', onclick: () => host.install() }, ico('plus', 16), 'Install app'))
-    );
-  } else if (!deskItems.length) {
+  if (!deskItems.length && apps.length) {
     d.append(
       h('div', { class: 'empty-desktop' }, h('h2', null, 'Your icons are hidden'), h('p', null, 'Your apps are still in the start menu.'), h('button', { class: 'btn primary', onclick: () => settings.patch({ hiddenIcons: [], showSystemIcons: true }) }, ico('eye', 16), 'Show all icons'))
     );

@@ -76,8 +76,8 @@ html[data-tone="light"] .dicon { color: #101420; text-shadow: 0 1px 2px rgba(255
 html[data-tone="light"] .dicon:hover { background: rgba(0, 0, 0, .07); }
 .dicon:focus-visible, .dicon.sel { background: rgba(255, 255, 255, .2); border-color: rgba(255, 255, 255, .35); outline: none; }
 html[data-tone="light"] .dicon:focus-visible, html[data-tone="light"] .dicon.sel { background: rgba(0, 0, 0, .1); border-color: rgba(0, 0, 0, .2); }
-.dlabel { font-size: .8125rem; font-weight: 600; line-height: 1.25; max-width: 100%; padding: 2px 6px; border-radius: 8px; background: rgba(8, 10, 20, .55); color: #fff; text-shadow: none; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-align: center; word-break: break-word; }
-html[data-tone="light"] .dlabel { background: rgba(255, 255, 255, .72); color: #101420; }
+.dlabel { font-family: var(--font, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif); font-size: .8rem; font-weight: 600; letter-spacing: .01em; line-height: 1.3; max-width: 100%; padding: 2px 7px; border-radius: 10px; background: rgba(8, 10, 20, .6); color: #fff; text-shadow: 0 1px 2px rgba(0, 0, 0, .5); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-align: center; word-break: normal; overflow-wrap: break-word; hyphens: none; text-wrap: balance; }
+html[data-tone="light"] .dlabel { background: rgba(255, 255, 255, .8); color: #101420; text-shadow: none; }
 .dicon.sel { z-index: 2; }
 .dicon.sel .dlabel { -webkit-line-clamp: unset; display: block; overflow: visible; }
 .dicon.dragging { z-index: 6; transition: none; opacity: .92; transform: scale(1.07); cursor: grabbing; filter: drop-shadow(0 12px 22px rgba(0, 0, 0, .4)); }
