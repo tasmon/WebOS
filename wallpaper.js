@@ -1,5 +1,5 @@
 // WebOS — wallpaper rendering and custom wallpaper upload.
-import { settings, WALLPAPERS } from './settings.js';
+import { settings, WALLPAPERS, DEFAULT_WALLPAPER } from './settings.js';
 import { kvGet, kvSet, kvDel } from './db.js';
 
 let objectUrl = null;
@@ -25,7 +25,7 @@ export async function applyWallpaper() {
       return;
     }
   }
-  el.style.background = (WALLPAPERS[id] || WALLPAPERS.aurora).css;
+  el.style.background = (WALLPAPERS[id] || WALLPAPERS[DEFAULT_WALLPAPER]).css;
 }
 
 /** Downscales a user image (max 2560px), stores it and switches to it. */
@@ -56,7 +56,7 @@ export async function removeCustomWallpaper() {
   try {
     await kvDel('wallpaper');
   } catch {}
-  if (settings.get('wallpaper') === 'custom') settings.set('wallpaper', 'aurora');
+  if (settings.get('wallpaper') === 'custom') settings.set('wallpaper', DEFAULT_WALLPAPER);
 }
 export async function hasCustomWallpaper() {
   try {

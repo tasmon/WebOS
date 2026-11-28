@@ -5,7 +5,7 @@ export const DEFAULTS = {
   // appearance
   theme: 'auto', // auto | light | dark
   accent: '#4f7cff',
-  wallpaper: 'aurora',
+  wallpaper: 'dunes',
   wallpaperFit: 'cover', // cover | contain | center | tile
   customTone: 'dark',
   blur: true,
@@ -59,28 +59,19 @@ export const ACCENTS = [
   { name: 'Teal', value: '#14b8a6' },
 ];
 
+const art = (file, size = 'cover') => `url("/wallpapers/${file}.svg") center / ${size} no-repeat`;
 export const WALLPAPERS = {
-  aurora: {
-    name: 'Aurora',
-    tone: 'dark',
-    css: 'radial-gradient(60% 55% at 18% 18%, #7c5cff 0%, transparent 62%), radial-gradient(55% 60% at 82% 28%, #00c8ff 0%, transparent 62%), radial-gradient(65% 65% at 58% 95%, #00e0a4 0%, transparent 62%), #0b1020',
-  },
-  sunset: { name: 'Sunset', tone: 'dark', css: 'linear-gradient(160deg, #ff9a76 0%, #ff5e7e 32%, #8b3ff0 72%, #2b1055 100%)' },
-  ocean: {
-    name: 'Ocean',
-    tone: 'dark',
-    css: 'radial-gradient(70% 50% at 70% 0%, #38bdf8 0%, transparent 70%), linear-gradient(180deg, #0ea5e9 0%, #2563eb 48%, #1e1b4b 100%)',
-  },
-  forest: {
-    name: 'Forest',
-    tone: 'dark',
-    css: 'radial-gradient(70% 60% at 30% 15%, #34d399 0%, transparent 62%), linear-gradient(180deg, #065f46 0%, #022c22 100%)',
-  },
-  lavender: { name: 'Lavender', tone: 'light', css: 'linear-gradient(135deg, #f5e9ff 0%, #c9b8ff 45%, #9cc9ff 100%)' },
-  dune: { name: 'Dune', tone: 'dark', css: 'linear-gradient(160deg, #fde68a 0%, #fb923c 48%, #9a3412 100%)' },
-  graphite: { name: 'Graphite', tone: 'dark', css: 'radial-gradient(80% 60% at 50% 0%, #475569 0%, transparent 72%), #0f172a' },
-  paper: { name: 'Paper', tone: 'light', css: 'linear-gradient(180deg, #f8fafc 0%, #d5dde8 100%)' },
+  dunes: { name: 'Dunes', tone: 'dark', css: art('dunes') },
+  ridge: { name: 'Night ridge', tone: 'dark', css: art('ridge') },
+  contour: { name: 'Contours', tone: 'dark', css: art('contour') },
+  bauhaus: { name: 'Bauhaus', tone: 'light', css: art('bauhaus') },
+  halftone: { name: 'Halftone', tone: 'dark', css: art('halftone') },
+  terrazzo: { name: 'Terrazzo', tone: 'light', css: art('terrazzo') },
+  waves: { name: 'Waves', tone: 'dark', css: art('waves') },
+  graphite: { name: 'Graphite', tone: 'dark', css: art('graphite') },
+  paper: { name: 'Paper', tone: 'light', css: art('paper') },
 };
+export const DEFAULT_WALLPAPER = 'dunes';
 
 let state = { ...DEFAULTS, ...load() };
 const subs = new Set();
@@ -171,7 +162,7 @@ export function apply() {
   d.dataset.tblabels = state.taskbarLabels ? 'on' : 'off';
   d.dataset.autohide = state.taskbarAutoHide ? 'on' : 'off';
   d.dataset.deskclock = state.desktopClock ? 'on' : 'off';
-  const wp = WALLPAPERS[state.wallpaper];
+  const wp = WALLPAPERS[state.wallpaper] || (state.wallpaper === 'custom' ? null : WALLPAPERS[DEFAULT_WALLPAPER]);
   d.dataset.tone = state.wallpaper === 'custom' ? state.customTone : wp ? wp.tone : 'dark';
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.content = theme === 'dark' ? '#10131a' : '#eef1f7';

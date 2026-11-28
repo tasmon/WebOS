@@ -1,6 +1,7 @@
 // WebOS — the Store: browse, install, rate and request apps. Only GitHub apps approved by the admin are listed.
 import { h, ico, toast, confirmBox, promptBox } from './ui.js';
 import { OS } from './config.js';
+import { tileColor } from './tile.js';
 import { get, post, del, ApiError } from './store-api.js';
 
 const SAFE_IMG = /^https:\/\/(raw\.githubusercontent\.com|avatars\.githubusercontent\.com|github\.com)\//;
@@ -37,7 +38,7 @@ function appIcon(a, size = 56) {
   const t = h('span', { class: 'tile', style: { '--tile': size + 'px' } });
   const letter = () => {
     t.replaceChildren(h('span', { class: 'ltr' }, ([...(a.title || '?')][0] || '?').toUpperCase()));
-    t.style.background = `linear-gradient(135deg, hsl(${hue(a.title)} 70% 55%), hsl(${(hue(a.title) + 40) % 360} 70% 42%))`;
+    t.style.background = tileColor(a.title);
   };
   if (a.iconUrl && (SAFE_IMG.test(a.iconUrl) || (a.kind === 'link' && /^https:\/\//.test(a.iconUrl)))) {
     const img = h('img', { src: a.iconUrl, alt: '', draggable: 'false', loading: 'lazy', referrerpolicy: 'no-referrer' });

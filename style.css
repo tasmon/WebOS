@@ -85,12 +85,12 @@ html[data-tone="light"] .dlabel { background: rgba(255, 255, 255, .8); color: #1
 html[data-labels="off"] .dlabel { display: none; }
 
 /* app tile (shared) */
-.tile { width: var(--tile, 40px); height: var(--tile, 40px); border-radius: calc(var(--tile, 40px) * .28); display: grid; place-items: center; overflow: hidden; flex: none; color: #fff; font-weight: 700; box-shadow: 0 4px 14px rgba(0, 0, 0, .28), inset 0 0 0 1px rgba(255, 255, 255, .12); background: var(--surface-3); }
+.tile { width: var(--tile, 40px); height: var(--tile, 40px); border-radius: calc(var(--tile, 40px) * .28); display: grid; place-items: center; overflow: hidden; flex: none; color: #fff7ea; font-weight: 700; box-shadow: 0 4px 12px rgba(0, 0, 0, .26), inset 0 1px 0 rgba(255, 255, 255, .28), inset 0 -3px 0 rgba(0, 0, 0, .14); background: var(--surface-3); }
 .tile img { width: 100%; height: 100%; object-fit: cover; display: block; background: rgba(255, 255, 255, .92); padding: 12%; }
 .tile img.full { padding: 0; }
 .tile .ico { width: 100%; height: 100%; }
 .tile .ico svg { width: 52%; height: 52%; }
-.tile .ltr { font-size: calc(var(--tile, 40px) * .46); text-shadow: 0 1px 2px rgba(0, 0, 0, .3); }
+.tile .ltr { font-size: calc(var(--tile, 40px) * .46); letter-spacing: -.02em; }
 
 #deskclock { position: fixed; top: 22px; right: 28px; text-align: right; color: #fff; text-shadow: 0 2px 14px rgba(0, 0, 0, .45); pointer-events: none; }
 html[data-tone="light"] #deskclock { color: #101420; text-shadow: 0 1px 8px rgba(255, 255, 255, .6); }
@@ -770,3 +770,17 @@ a.btn.primary { color: var(--accent-fg); }
 .fb-body { white-space: pre-wrap; overflow-wrap: anywhere; font-size: .875rem; }
 .fb-reply { margin-top: .3rem; padding: .55rem .7rem; border-radius: var(--r-sm); background: color-mix(in srgb, var(--accent) 12%, transparent); border-left: 3px solid var(--accent); font-size: .875rem; }
 .fb-reply p { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* hand-drawn tile glyphs (see tile-art.js) */
+.tile.sys svg { width: 100%; height: 100%; display: block; }
+.tile .g-cream { fill: #fff6e8; }
+.tile .g-hi { fill: #ffc94d; }
+.tile .g-wh { fill: rgba(255, 255, 255, .5); }
+.tile .g-sh { fill: rgba(40, 20, 10, .16); }
+.tile .g-bg { fill: var(--c); }
+.tile .g-bgs { stroke: var(--c); }
+.tile .g-fillnone { fill: none; }
+.tile path.g-cream.g-fillnone { stroke: #fff6e8; }
+.tile path.g-hi.g-fillnone { stroke: #ffc94d; }
+.tile .g-txt { fill: #fff6e8; font: 800 9px/1 var(--font); letter-spacing: .02em; }
+.tile .g-txt.big { fill: var(--c); font-size: 22px; }

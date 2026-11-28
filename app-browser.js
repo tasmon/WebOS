@@ -1,6 +1,7 @@
 // WebOS — Browser: open websites inside a WebOS window. Sites that refuse to be framed get a clear "open in new window" card.
 import { h, ico, toast, showMenu } from './ui.js';
 import { settings } from './settings.js';
+import { tileColor } from './tile.js';
 import { normalizeUrl, blocksFraming, hostOf, framedSite, openPopup, faviconOf } from './web-apps.js';
 
 const ENGINES = {
@@ -23,7 +24,7 @@ function siteTile(title, url, size = 44) {
     t.replaceChildren(h('span', { class: 'ltr' }, ([...title][0] || '?').toUpperCase()));
     let n = 0;
     for (const c of hostOf(url)) n = (n * 31 + c.charCodeAt(0)) >>> 0;
-    t.style.background = `linear-gradient(135deg, hsl(${n % 360} 65% 52%), hsl(${(n + 40) % 360} 65% 40%))`;
+    t.style.background = tileColor(hostOf(url));
   };
   const img = h('img', { src: faviconOf(url), alt: '', draggable: 'false', referrerpolicy: 'no-referrer' });
   img.addEventListener('error', letter);

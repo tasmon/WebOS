@@ -90,9 +90,7 @@ export function icon(name, size = 18) {
 }
 export const hasIcon = (n) => n in P;
 
-let logoN = 0;
 /** The WebOS logo as inline SVG (no image file needed, so it can never show as broken). */
 export function logo(size = 48, cls = '') {
-  const n = ++logoN;
-  return `<svg class="${cls}" xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 512 512" aria-hidden="true" focusable="false"><defs><linearGradient id="lgb${n}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5b8cff"/><stop offset="1" stop-color="#8b5cf6"/></linearGradient><linearGradient id="lgw${n}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4f7cff"/><stop offset="1" stop-color="#7c3aed"/></linearGradient></defs><rect width="512" height="512" rx="112" fill="url(#lgb${n})"/><rect x="72" y="92" width="300" height="236" rx="30" fill="#fff" fill-opacity=".28"/><rect x="108" y="140" width="332" height="262" rx="32" fill="#fff"/><path d="M108 172a32 32 0 0 1 32-32h268a32 32 0 0 1 32 32v26H108z" fill="#eef1fb"/><circle cx="146" cy="169" r="11" fill="#ff6b6b"/><circle cx="178" cy="169" r="11" fill="#ffc14d"/><circle cx="210" cy="169" r="11" fill="#3ddc97"/><path d="M164 244l44 108 48-84 48 84 44-108" fill="none" stroke="url(#lgw${n})" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  return `<svg class="${cls}" xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 512 512" aria-hidden="true" focusable="false"><rect width="512" height="512" rx="112" fill="#1b2140"/><rect x="118" y="142" width="300" height="250" rx="34" fill="#f2b134"/><rect x="96" y="120" width="300" height="250" rx="34" fill="#fff3e0"/><path d="M96 154a34 34 0 0 1 34-34h232a34 34 0 0 1 34 34v26H96z" fill="#ff6a3d"/><circle cx="134" cy="150" r="9" fill="#fff3e0"/><circle cx="164" cy="150" r="9" fill="#fff3e0"/><circle cx="194" cy="150" r="9" fill="#fff3e0"/><path d="M140 218 186 330 246 244 306 330 352 218" fill="none" stroke="#1b2140" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 }

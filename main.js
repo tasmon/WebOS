@@ -29,15 +29,15 @@ const notifications = [];
 const instances = new Map(); // window key -> { destroy, go }
 
 const SYS = {
-  store: { title: 'Store', icon: 'store', color: '#f97316', w: 960, h: 640 },
-  browser: { title: 'Browser', icon: 'globe', color: '#0ea5e9', w: 1000, h: 660 },
-  media: { title: 'Media Player', icon: 'music', color: '#ec4899', w: 860, h: 560 },
-  pdf: { title: 'PDF Reader', icon: 'pdf', color: '#ef4444', w: 820, h: 660 },
-  tetris: { title: 'Tetris', icon: 'gamepad', color: '#8b5cf6', w: 500, h: 600 },
-  manager: { title: 'App Manager', icon: 'package', color: '#4f7cff', w: 880, h: 580 },
-  settings: { title: 'Settings', icon: 'settings', color: '#64748b', w: 920, h: 620 },
-  help: { title: 'Help', icon: 'help', color: '#f59e0b', w: 720, h: 620 },
-  about: { title: 'About WebOS', icon: 'info', color: '#14b8a6', w: 480, h: 620 },
+  store: { title: 'Store', icon: 'store', color: '#e4572e', w: 960, h: 640 },
+  browser: { title: 'Browser', icon: 'globe', color: '#118ab2', w: 1000, h: 660 },
+  media: { title: 'Media Player', icon: 'music', color: '#d1457a', w: 860, h: 560 },
+  pdf: { title: 'PDF Reader', icon: 'pdf', color: '#c1272d', w: 820, h: 660 },
+  tetris: { title: 'Tetris', icon: 'gamepad', color: '#6c4ab6', w: 500, h: 600 },
+  manager: { title: 'App Manager', icon: 'package', color: '#3a5ccc', w: 880, h: 580 },
+  settings: { title: 'Settings', icon: 'settings', color: '#4b5563', w: 920, h: 620 },
+  help: { title: 'Help', icon: 'help', color: '#e09f1f', w: 720, h: 620 },
+  about: { title: 'About WebOS', icon: 'info', color: '#0f9d8a', w: 480, h: 620 },
 };
 
 const emitApps = () => appSubs.forEach((f) => f());
@@ -205,10 +205,7 @@ async function ensureIcons() {
       c.width = c.height = size;
       const g = c.getContext('2d');
       if (maskable) {
-        const bg = g.createLinearGradient(0, 0, size, size);
-        bg.addColorStop(0, '#5b8cff');
-        bg.addColorStop(1, '#8b5cf6');
-        g.fillStyle = bg;
+        g.fillStyle = '#1b2140';
         g.fillRect(0, 0, size, size);
         const s = size * 0.78;
         g.drawImage(img, (size - s) / 2, (size - s) / 2, s, s); // keep the logo inside the safe zone
@@ -542,7 +539,7 @@ function allDeskEntries() {
     key: 'sys:install',
     name: 'Install app',
     system: true,
-    tile: () => systemTile('plus', '#22c55e'),
+    tile: () => systemTile('plus', '#2f9e44'),
     open: () => host.install(),
     menu: () => [{ label: 'Install app…', icon: 'plus', onClick: () => host.install() }, hideItem('sys:install')],
   });

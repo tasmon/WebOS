@@ -14,7 +14,8 @@ function toast(msg, kind = 'info') {
   document.getElementById('toasts').append(t);
   setTimeout(() => t.remove(), 4500);
 }
-const errMsg = (e) => (e instanceof ApiError ? e.message : 'Something went wrong.');
+const OUTDATED = 'The server file is out of date. Upload the newest api/index.js into the api folder of your GitHub repository (not the main folder), wait for the site to redeploy, then reload this page.';
+const errMsg = (e) => (e instanceof ApiError ? (e.status === 404 || e.status === 405 ? OUTDATED : e.message) : 'Something went wrong.');
 async function run(btn, fn) {
   btn.disabled = true;
   try {
@@ -88,9 +89,9 @@ async function dashboard() {
   async function show() {
     body.replaceChildren(h('div', { class: 'empty' }, 'Loading…'));
     try {
-      if (tab === 'users') return users(body, refresh);
-      if (tab === 'reviewers') return reviewers(body, refresh);
-      if (tab === 'messages') return messages(body, refresh);
+      if (tab === 'users') return await users(body, refresh);
+      if (tab === 'reviewers') return await reviewers(body, refresh);
+      if (tab === 'messages') return await messages(body, refresh);
       if (tab === 'add') return addForm(body, refresh, () => ((tab = 'approved'), refresh(), show()));
       const r = await get('admin/apps?status=' + tab);
       body.replaceChildren(h('div', { class: 'list' }, r.apps.length ? r.apps.map((a) => appCard(a, async () => (await refresh(), show()))) : h('div', { class: 'empty' }, tab === 'pending' ? 'Nothing is waiting for approval. 🎉' : 'Nothing here yet.')));

@@ -1,5 +1,6 @@
 // WebOS — app icon tiles (installed apps use their own icon, or a coloured letter).
 import { h, ico } from './ui.js';
+import { TILE_ART } from './tile-art.js';
 
 const urls = new Map(); // appId -> { blob, url }
 
@@ -19,13 +20,14 @@ export const forgetIcon = (id) => {
 };
 export const appIconUrl = iconUrl;
 
-function hue(s) {
+const PALETTE = ['#e4572e', '#3a5ccc', '#118ab2', '#d1457a', '#6c4ab6', '#2f9e44', '#e09f1f', '#0f9d8a', '#c1272d', '#4b5563'];
+/** A flat colour for apps that have no icon of their own, picked from a fixed palette by name. */
+export function tileColor(name) {
   let n = 0;
-  for (const ch of s) n = (n * 31 + ch.charCodeAt(0)) >>> 0;
-  return n % 360;
+  for (const ch of String(name || '?')) n = (n * 31 + ch.charCodeAt(0)) >>> 0;
+  return PALETTE[n % PALETTE.length];
 }
-
-const gradient = (name) => `linear-gradient(135deg, hsl(${hue(name)} 70% 55%), hsl(${(hue(name) + 40) % 360} 70% 42%))`;
+const gradient = tileColor;
 
 /** Tile for an installed app record. Size comes from the CSS variable --tile. */
 export function appTile(app) {
@@ -50,7 +52,12 @@ function letter(app) {
   return h('span', { class: 'ltr' }, ch);
 }
 
-/** Tile for a built-in system app (an icon on a coloured background). */
+/** Tile for a built-in system app: a hand-drawn glyph on a flat colour. */
 export function systemTile(iconName, color = '#4f7cff') {
-  return h('span', { class: 'tile', style: { background: `linear-gradient(135deg, ${color}, color-mix(in srgb, ${color} 60%, #000))` } }, ico(iconName, 22));
+  const t = h('span', { class: 'tile sys' });
+  t.style.setProperty('--c', color);
+  t.style.background = color;
+  if (TILE_ART[iconName]) t.innerHTML = `<svg viewBox="0 0 48 48" aria-hidden="true" focusable="false">${TILE_ART[iconName]}</svg>`;
+  else t.append(ico(iconName, 22));
+  return t;
 }
