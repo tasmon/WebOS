@@ -41,6 +41,8 @@ Use it to:
 | | |
 | --- | --- |
 | 🛍️ **Store** | Browse approved GitHub apps, see ratings, downloads and comments, and install in one tap |
+| 🌐 **Built-in apps** | Browser, Media Player, PDF Reader and Tetris, ready to use |
+| 🔗 **Web shortcuts** | Turn any website into an app icon that opens in a window |
 | 📦 **Install apps** | From a ZIP file, a folder, a GitHub link, or a web address |
 | 🪟 **Use windows** | Move, resize, snap to screen edges, minimise, maximise |
 | 🖥️ **A real desktop** | Icons, taskbar, start menu with search, notifications, calendar |
@@ -170,5 +172,6 @@ Want to make your app look right inside WebOS, or host your own copy? See **[DEV
 
 Made by **Tasmon Islam** · [tasmon@outlook.com](mailto:tasmon@outlook.com)
 Released under the [MIT License](LICENSE)
+PDF Reader uses [pdf.js](https://mozilla.github.io/pdf.js/) by Mozilla (Apache-2.0)
 
 </div>

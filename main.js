@@ -14,6 +14,11 @@ import { buildSettings } from './app-settings.js';
 import { buildAbout } from './app-about.js';
 import { buildHelp } from './app-help.js';
 import { buildStore } from './app-store.js';
+import { buildBrowser } from './app-browser.js';
+import { buildMedia } from './app-media.js';
+import { buildPdf } from './app-pdf.js';
+import { buildTetris } from './app-tetris.js';
+import { openShortcutDialog, framedSite, openPopup } from './web-apps.js';
 import { post as apiPost } from './store-api.js';
 import { canInstall, promptInstall, onInstallChange } from './pwa.js';
 
@@ -25,6 +30,10 @@ const instances = new Map(); // window key -> { destroy, go }
 
 const SYS = {
   store: { title: 'Store', icon: 'store', color: '#f97316', w: 960, h: 640 },
+  browser: { title: 'Browser', icon: 'globe', color: '#0ea5e9', w: 1000, h: 660 },
+  media: { title: 'Media Player', icon: 'music', color: '#ec4899', w: 860, h: 560 },
+  pdf: { title: 'PDF Reader', icon: 'pdf', color: '#ef4444', w: 820, h: 660 },
+  tetris: { title: 'Tetris', icon: 'gamepad', color: '#8b5cf6', w: 500, h: 600 },
   manager: { title: 'App Manager', icon: 'package', color: '#4f7cff', w: 880, h: 580 },
   settings: { title: 'Settings', icon: 'settings', color: '#64748b', w: 920, h: 620 },
   help: { title: 'Help', icon: 'help', color: '#f59e0b', w: 720, h: 620 },
@@ -73,6 +82,16 @@ const host = {
       counted = !!(await apiPost('store/apps/' + encodeURIComponent(sa.id) + '/download')).counted;
     } catch {}
     return { result, counted };
+  },
+  /** Adds (or edits) a web shortcut: any website as an app icon. */
+  async addShortcut(opts = {}) {
+    const rec = await openShortcutDialog(opts);
+    if (rec) {
+      forgetIcon(rec.id);
+      await reloadApps();
+      toast(opts.app ? 'Shortcut updated.' : `${rec.name} was added to your desktop.`, { kind: 'success', actions: opts.app ? [] : [{ label: 'Open', onClick: () => openApp(rec) }] });
+    }
+    return rec;
   },
   async uninstall(app, silent = false) {
     wm.closeByApp(app.id);
@@ -199,8 +218,33 @@ async function ensureIcons() {
 /* ============================================================== launching */
 const sysIconFn = (id) => () => systemTile(SYS[id].icon, SYS[id].color);
 
+function openLinkApp(app, opts) {
+  app.lastOpened = Date.now();
+  app.openCount = (app.openCount || 0) + 1;
+  db.putApp(app).catch(() => {});
+  let mode = app.openIn || 'window';
+  if (opts.tab || settings.get('appOpenMode') === 'tab') mode = 'tab';
+  if (mode === 'tab') return void window.open(app.url, '_blank', 'noopener,noreferrer');
+  if (mode === 'popup') return openPopup(app.url, app.width || 1100, app.height || 760);
+  const view = framedSite(app.url, { title: app.name, onExternal: () => openPopup(app.url, app.width || 1100, app.height || 760) });
+  wm.create({
+    key: 'app:' + app.id,
+    appId: app.id,
+    title: app.name,
+    content: view.el,
+    width: app.width || 1000,
+    height: app.height || 680,
+    iconFn: () => appTile(app),
+    actions: [
+      { icon: 'refresh', title: 'Reload', onClick: () => view.reload() },
+      { icon: 'external', title: 'Open in its own window', onClick: () => openPopup(app.url) },
+    ],
+  });
+}
+
 async function openApp(app, opts = {}) {
   app = findApp(app.id) || app;
+  if (app.kind === 'link') return openLinkApp(app, opts);
   if (!(await initSW())) {
     toast('WebOS needs service workers to run apps. They may be disabled in private browsing or by your browser settings.', { kind: 'error', title: "Can't open app", timeout: 9000 });
     return;
@@ -239,12 +283,25 @@ function openSystem(id, arg) {
     if (id === 'settings' && arg) instances.get(key)?.go?.(arg);
     if (id === 'manager' && arg) instances.get(key)?.select?.(arg);
     if (id === 'store' && arg) instances.get(key)?.go?.(arg.view, arg.id);
+    if (id === 'browser' && typeof arg === 'string') instances.get(key)?.go?.(arg);
     return;
   }
   let inst;
   let content;
   if (id === 'store') {
     inst = buildStore(host);
+    content = inst.el;
+  } else if (id === 'browser') {
+    inst = buildBrowser(host, typeof arg === 'string' ? arg : '');
+    content = inst.el;
+  } else if (id === 'media') {
+    inst = buildMedia(host);
+    content = inst.el;
+  } else if (id === 'pdf') {
+    inst = buildPdf(host);
+    content = inst.el;
+  } else if (id === 'tetris') {
+    inst = buildTetris(host);
     content = inst.el;
   } else if (id === 'manager') {
     inst = buildAppManager(host);
@@ -262,7 +319,7 @@ function openSystem(id, arg) {
     content,
     width: def.w,
     height: def.h,
-    minW: id === 'about' ? 360 : 460,
+    minW: id === 'about' ? 360 : id === 'tetris' ? 300 : 340,
     minH: 360,
     onClose: () => {
       inst?.destroy?.();
@@ -451,7 +508,7 @@ function appMenu(app) {
     { separator: true },
     { label: app.pinned ? 'Unpin from taskbar' : 'Pin to taskbar', icon: 'pin', onClick: () => host.togglePin(app) },
     { label: 'Rename…', icon: 'edit', onClick: async () => { const v = await promptBox({ title: 'Rename app', label: 'Name', value: app.name }); if (v) host.rename(app, v.slice(0, 60)); } },
-    { label: 'Export as ZIP', icon: 'upload', onClick: async () => { const t = toast('Preparing ZIP…', { timeout: 0 }); try { download(await exportAppZip(app), app.id + '.zip'); } catch (e) { toast(e.message, { kind: 'error' }); } t.close(); } },
+    ...(app.kind === 'link' ? [{ label: 'Edit shortcut…', icon: 'edit', onClick: () => host.addShortcut({ app }) }] : [{ label: 'Export as ZIP', icon: 'upload', onClick: async () => { const t = toast('Preparing ZIP…', { timeout: 0 }); try { download(await exportAppZip(app), app.id + '.zip'); } catch (e) { toast(e.message, { kind: 'error' }); } t.close(); } }]),
     { label: 'Details', icon: 'info', onClick: () => openSystem('manager', app.id) },
     hideItem('app:' + app.id),
     { separator: true },
@@ -512,6 +569,7 @@ document.addEventListener('contextmenu', (e) => {
   e.preventDefault();
   showMenu(e.clientX, e.clientY, [
     { label: 'Open Store', icon: 'store', onClick: () => openSystem('store') },
+    { label: 'Add web shortcut…', icon: 'shortcut', onClick: () => host.addShortcut() },
     { label: 'Install app…', icon: 'plus', onClick: () => host.install() },
     { label: 'Refresh', icon: 'refresh', onClick: () => reloadApps() },
     { label: 'Auto arrange icons', icon: 'grid', onClick: () => settings.set('iconPos', {}) },
@@ -683,7 +741,7 @@ function startPanel() {
     const list = sortedApps().filter((a) => !q || (a.name + ' ' + a.description).toLowerCase().includes(q));
     scroll.replaceChildren();
     if (!q || 'install'.includes(q) || 'add'.includes(q)) {
-      scroll.append(h('div', { class: 'panel-title' }, 'System'), h('div', { class: 'app-grid' }, sys.map(([id, d]) => cell(d.title, systemTile(d.icon, d.color), () => openSystem(id))), cell('Install app', systemTile('plus', '#22c55e'), () => host.install())));
+      scroll.append(h('div', { class: 'panel-title' }, 'System'), h('div', { class: 'app-grid' }, sys.map(([id, d]) => cell(d.title, systemTile(d.icon, d.color), () => openSystem(id))), cell('Install app', systemTile('plus', '#22c55e'), () => host.install()), cell('Web shortcut', systemTile('shortcut', '#14b8a6'), () => host.addShortcut())));
     }
     if (list.length) scroll.append(h('div', { class: 'panel-title' }, q ? 'Apps' : `Your apps (${list.length})`), h('div', { class: 'app-grid' }, list.map((a) => h('button', { class: 'app-cell', title: a.name, onclick: () => (closePanel(), openApp(a)), oncontextmenu: (e) => { e.preventDefault(); showMenu(e.clientX, e.clientY, appMenu(a)); } }, appTile(a), h('span', { class: 'n' }, a.name)))));
     else if (!q) scroll.append(h('div', { class: 'none' }, 'No apps yet. Choose “Install app” to add your first one.'));
@@ -796,7 +854,7 @@ addEventListener('keydown', (e) => shortcut(e) && e.preventDefault());
 /* =========================================================== drag & drop */
 let dragDepth = 0;
 addEventListener('dragenter', (e) => {
-  if (!hasDraggedFiles(e)) return;
+  if (!hasDraggedFiles(e) || e.target.closest?.('.accepts-files')) return;
   dragDepth++;
   $('#dropzone').classList.add('show');
   $('#dropzone .dz-ico').replaceChildren(ico('download', 44));
@@ -813,7 +871,7 @@ addEventListener('drop', async (e) => {
   e.preventDefault();
   dragDepth = 0;
   $('#dropzone').classList.remove('show');
-  if (e.target.closest?.('.modal')) return;
+  if (e.target.closest?.('.modal, .accepts-files')) return;
   try {
     const r = await readDrop(e.dataTransfer);
     host.install({ preload: { files: r.files, name: r.name, source: r.source } });

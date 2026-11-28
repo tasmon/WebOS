@@ -29,10 +29,10 @@ const gradient = (name) => `linear-gradient(135deg, hsl(${hue(name)} 70% 55%), h
 
 /** Tile for an installed app record. Size comes from the CSS variable --tile. */
 export function appTile(app) {
-  const url = iconUrl(app);
+  const url = iconUrl(app) || (app.kind === 'link' && app.favicon) || null;
   const t = h('span', { class: 'tile' });
   if (url) {
-    const img = h('img', { src: url, alt: '', draggable: 'false', class: /svg/.test(app.icon?.type || '') ? '' : '' });
+    const img = h('img', { src: url, alt: '', draggable: 'false', referrerpolicy: 'no-referrer', class: /svg/.test(app.icon?.type || '') ? '' : '' });
     const fallback = () => {
       img.replaceWith(letter(app));
       t.style.background = gradient(app.name);

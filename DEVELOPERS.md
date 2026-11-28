@@ -123,11 +123,14 @@ Go to `https://webos.asf.run/admin` and sign in with `tasmon@outlook.com` and yo
 | `sw.js` | Service worker: serves installed apps from storage, works offline |
 | `installer.js`, `install-ui.js` | ZIP / folder / GitHub reading, app detection, install dialog |
 | `app-manager.js`, `app-settings.js`, `app-help.js`, `app-about.js`, `app-store.js` | Built-in apps |
+| `app-browser.js`, `app-media.js`, `app-pdf.js`, `app-tetris.js` | Browser, Media Player, PDF Reader, Tetris |
+| `web-apps.js` | Web shortcuts (apps that open a website) |
 | `store-api.js` | Browser side of the Store API |
-| `api/[...route].js` | The Store backend (one Vercel function: accounts, listings, reviews, admin) |
+| `api/index.js` | The Store backend (one Vercel function: accounts, listings, reviews, admin) |
 | `admin.html`, `admin.js`, `admin.css` | Admin dashboard at `/admin` |
 | `db.js`, `settings.js`, `wallpaper.js`, `tile.js`, `ui.js`, `icons.js`, `pwa.js`, `config.js` | Support modules |
 | `jszip.min.js` | ZIP reader (JSZip, MIT) |
+| `pdf.min.js`, `pdf.worker.min.js` | PDF engine (pdf.js 3.11.174, Apache-2.0), loaded only when PDF Reader opens |
 | `manifest.webmanifest`, `icon*.svg/png` | PWA metadata and icons |
 | `vercel.json` | Headers for Vercel |
 

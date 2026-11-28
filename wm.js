@@ -190,6 +190,8 @@ export function create(opts) {
     w: width,
     h: height,
   };
+  rect.x = Math.max(4, Math.min(rect.x, a.w - width - 4)); // never start partly off screen
+  rect.y = Math.max(4, Math.min(rect.y, a.h - height - 4));
 
   const w = {
     id: 'win' + ++seq,
@@ -198,7 +200,7 @@ export function create(opts) {
     title: opts.title || 'Window',
     iconFn: opts.iconFn || (() => ico('box', 18)),
     state: 'open',
-    snap: opts.maximized || settings.get('openMaximized') ? 'max' : null,
+    snap: opts.maximized || settings.get('openMaximized') || a.h < 440 ? 'max' : null, // short screens (a phone on its side) get full-size windows
     rect,
     minW,
     minH,

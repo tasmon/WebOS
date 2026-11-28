@@ -3,7 +3,7 @@ import { h, ico, formatBytes, formatDate, promptBox, confirmBox, download, toast
 import { appTile } from './tile.js';
 import { exportAppZip } from './installer.js';
 
-const SRC = { zip: 'ZIP file', folder: 'Folder', github: 'GitHub', url: 'Web link' };
+const SRC = { zip: 'ZIP file', folder: 'Folder', github: 'GitHub', url: 'Web link', link: 'Web shortcut' };
 
 export function buildAppManager(host) {
   let selected = null;
@@ -94,13 +94,13 @@ export function buildAppManager(host) {
         'dl',
         { class: 'kv' },
         row('Version', app.version || '—'),
-        row('Size', `${formatBytes(app.size)} · ${app.fileCount} files`),
+        app.kind === 'link' ? row('Website', h('code', { style: 'font-size:.72rem;overflow-wrap:anywhere' }, app.url)) : row('Size', `${formatBytes(app.size)} · ${app.fileCount} files`),
         row('Source', SRC[app.source] || 'ZIP file'),
         row('Installed', formatDate(app.installedAt)),
         app.updatedAt !== app.installedAt && row('Updated', formatDate(app.updatedAt)),
         row('Opened', app.openCount ? `${app.openCount} time${app.openCount === 1 ? '' : 's'}` : 'Never'),
         app.author && row('Author', app.author),
-        row('Address', h('code', { style: 'font-size:.72rem' }, '/apps/' + app.id + '/'))
+        app.kind !== 'link' && row('Address', h('code', { style: 'font-size:.72rem' }, '/apps/' + app.id + '/'))
       ),
       h(
         'div',
@@ -109,9 +109,13 @@ export function buildAppManager(host) {
         h('button', { class: 'btn', onclick: () => host.openApp(app, { tab: true }) }, ico('globe', 16), 'Open in new tab'),
         h('button', { class: 'btn', onclick: () => host.togglePin(app) }, ico('pin', 16), app.pinned ? 'Unpin from taskbar' : 'Pin to taskbar'),
         h('button', { class: 'btn', onclick: () => rename(app) }, ico('edit', 16), 'Rename'),
-        h('button', { class: 'btn', onclick: () => host.install({ replaceId: app.id, tab: app.source === 'folder' ? 'folder' : app.source || 'zip', prefill: app.sourceUrl }) }, ico('refresh', 16), 'Update…'),
-        h('button', { class: 'btn', onclick: () => exportZip(app) }, ico('upload', 16), 'Export as ZIP'),
-        h('button', { class: 'btn', onclick: () => clearData(app) }, ico('trash', 16), 'Clear saved data'),
+        app.kind === 'link'
+          ? h('button', { class: 'btn', onclick: () => host.addShortcut({ app }) }, ico('edit', 16), 'Edit shortcut…')
+          : [
+              h('button', { class: 'btn', onclick: () => host.install({ replaceId: app.id, tab: app.source === 'folder' ? 'folder' : app.source || 'zip', prefill: app.sourceUrl }) }, ico('refresh', 16), 'Update…'),
+              h('button', { class: 'btn', onclick: () => exportZip(app) }, ico('upload', 16), 'Export as ZIP'),
+              h('button', { class: 'btn', onclick: () => clearData(app) }, ico('trash', 16), 'Clear saved data'),
+            ],
         h('button', { class: 'btn danger', onclick: () => uninstall(app) }, ico('trash', 16), 'Uninstall')
       )
     );

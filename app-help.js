@@ -40,6 +40,15 @@ export function buildHelp(host) {
       ),
       h('p', null, h('button', { class: 'btn', onclick: () => host.openSystem('store') }, ico('store', 16), 'Open Store')),
     ]),
+    section('builtin', 'Built-in apps and web shortcuts', [
+      list(
+        [h('b', null, 'Browser'), ': open websites inside a window, with bookmarks and a search box. Some sites refuse to be shown inside other pages, and WebOS cannot change that. For those, use Open in its own window.'],
+        [h('b', null, 'Media Player'), ': play music and video from your device. Drop files on it or press Open. Space plays or pauses, arrows seek and change volume, F is full screen. Files are not kept after you close it.'],
+        [h('b', null, 'PDF Reader'), ': open a PDF from your device, scroll, zoom and jump to a page. Its reading engine downloads only the first time you open it.'],
+        [h('b', null, 'Tetris'), ': arrows move, Up rotates, Space drops, C holds, P pauses. On phones, use the buttons or swipe.'],
+        [h('b', null, 'Web shortcuts'), ': right-click the desktop (or use the start menu) and choose Add web shortcut. Type an address such as web.whatsapp.com, pick a name, and choose how it opens. Sites like WhatsApp, Google and YouTube forbid being framed, so they open in their own browser window by default.']
+      ),
+    ]),
     section('package', 'Ways to install an app', [
       list(
         [h('b', null, 'ZIP file: '), 'drop it on the desktop or pick it with the file chooser.'],

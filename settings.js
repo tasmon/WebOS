@@ -22,6 +22,8 @@ export const DEFAULTS = {
   desktopClock: true,
   hiddenIcons: [], // desktop icon keys the user hid
   iconPos: {}, // desktop icon key -> [column, row]
+  bookmarks: [], // Browser bookmarks: [{ title, url }]
+  searchEngine: 'duckduckgo',
   // windows
   openMaximized: false,
   snapAssist: true,
