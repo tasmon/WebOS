@@ -15,9 +15,15 @@
 const crypto = require('crypto');
 
 /* ================================================================= config */
+// Vercel lets you choose a prefix when connecting a database (for example STORAGE_KV_REST_API_URL), so accept any prefix.
+const envBy = (names, rx) => {
+  for (const n of names) if (process.env[n]) return process.env[n];
+  const k = Object.keys(process.env).find((x) => rx.test(x) && !/READ_ONLY/.test(x) && process.env[x]);
+  return k ? process.env[k] : '';
+};
 const cfg = () => ({
-  url: process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL || '',
-  token: process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN || '',
+  url: envBy(['UPSTASH_REDIS_REST_URL', 'KV_REST_API_URL'], /(KV_REST_API_URL|REDIS_REST_URL|_REST_API_URL)$/),
+  token: envBy(['UPSTASH_REDIS_REST_TOKEN', 'KV_REST_API_TOKEN'], /(KV_REST_API_TOKEN|REDIS_REST_TOKEN|_REST_API_TOKEN)$/),
   adminEmail: (process.env.ADMIN_EMAIL || 'tasmon@outlook.com').trim().toLowerCase(),
   adminPassword: process.env.ADMIN_PASSWORD || '',
   github: process.env.GITHUB_TOKEN || '',
@@ -41,6 +47,7 @@ const QUESTIONS = [
 const QTEXT = Object.fromEntries(QUESTIONS.map((q) => [q.id, q.text]));
 const has = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
 
+const REVIEW_STREAK = 5; // approved apps in a row needed to ask for a reviewer account
 const COOKIE_USER = 'webos_session';
 const COOKIE_ADMIN = 'webos_admin';
 const USER_TTL = 30 * 24 * 3600;
@@ -63,6 +70,26 @@ const clean = (v, max) =>
     .trim()
     .slice(0, max);
 const isEmail = (e) => e.length <= 254 && /^[^\s@]{1,64}@[^\s@]{1,255}\.[^\s@.]{2,}$/.test(e);
+/** Cleans a website address. Only public https addresses are accepted. soft=true returns '' instead of failing. */
+function cleanUrl(input, soft) {
+  let v = clean(input, 300);
+  if (!v) return '';
+  const bad = (m) => (soft ? '' : fail(400, m));
+  if (!/^[a-z][a-z0-9+.-]*:/i.test(v)) v = 'https://' + v;
+  let u;
+  try {
+    u = new URL(v);
+  } catch (e) {
+    return bad('Enter a valid website address, for example example.com.');
+  }
+  if (!/^https?:$/.test(u.protocol)) return bad('Only http and https website addresses can be used.');
+  const host = u.hostname.toLowerCase();
+  if (u.username || u.password) return bad('The address cannot contain a user name or password.');
+  if (!host.includes('.') || /^[\d.]+$/.test(host) || host.includes(':') || host.startsWith('[') || /\.(local|internal|localhost|lan|home)$/.test(host) || host === 'localhost') return bad('Use a public website address such as example.com.');
+  u.protocol = 'https:';
+  u.hash = '';
+  return u.href;
+}
 const sha = (s) => crypto.createHash('sha256').update(String(s)).digest('hex');
 const slug = (s) =>
   String(s)
@@ -181,7 +208,15 @@ function needAdmin(req) {
   if (!p || p.role !== 'admin' || p.sub !== cfg().adminEmail) fail(401, 'Admin sign-in required.');
   return p;
 }
-const publicUser = (u) => ({ email: u.email, name: u.name, created: u.created });
+const publicUser = (u) => ({
+  email: u.email,
+  name: u.name,
+  created: u.created,
+  reviewer: !!u.reviewer,
+  streak: u.streak || 0,
+  reviewerRequested: !!u.revReq,
+  reviewerDeniedUntil: u.revDeniedAt && now() < u.revDeniedAt + 7 * 864e5 ? u.revDeniedAt + 7 * 864e5 : 0,
+});
 
 /* ================================================================= rate limits */
 async function limit(name, key, max, windowSec, message) {
@@ -239,6 +274,9 @@ async function verifyRepo(input) {
     avatar: `https://github.com/${encodeURIComponent(want.owner)}.png?size=96`,
     iconUrl: '',
     verified: false,
+    noIndex: false,
+    homepage: '',
+    pagesUrl: '',
     files: 0,
     size: 0,
   };
@@ -257,6 +295,8 @@ async function verifyRepo(input) {
   out.repo = repo.name;
   out.description = clean(repo.description || '', 300);
   out.stars = repo.stargazers_count || 0;
+  out.homepage = cleanUrl(repo.homepage || '', true);
+  if (repo.has_pages) out.pagesUrl = `https://${repo.owner.login.toLowerCase()}.github.io/${repo.name.toLowerCase() === repo.owner.login.toLowerCase() + '.github.io' ? '' : repo.name + '/'}`;
   out.license = (repo.license && repo.license.spdx_id && repo.license.spdx_id !== 'NOASSERTION' && repo.license.spdx_id) || '';
   out.publisher = repo.owner.login;
   out.publisherName = repo.owner.login;
@@ -285,7 +325,12 @@ async function verifyRepo(input) {
         if (!files.length) fail(400, 'That folder was not found in the repository.');
       }
       const root = chooseRoot(files.map((f) => f.path));
-      if (root === null) fail(400, 'No index.html found. WebOS runs static websites, so the repository (or its dist/build folder) needs an index.html.');
+      if (root === null) {
+        // no index.html: the app runs online (GitHub Pages, Vercel, ...), so it can only be added as a web shortcut
+        out.noIndex = true;
+        out.verified = true;
+        return out;
+      }
       const inRoot = root ? files.filter((f) => f.path.startsWith(root + '/')).map((f) => ({ ...f, path: f.path.slice(root.length + 1) })) : files;
       out.files = inRoot.length;
       out.size = inRoot.reduce((n, f) => n + f.size, 0);
@@ -325,6 +370,8 @@ function pubApp(a, s = {}) {
     license: a.license || '',
     iconUrl: a.iconUrl || '',
     featured: !!a.featured,
+    kind: a.kind === 'link' ? 'link' : 'repo',
+    url: a.kind === 'link' ? a.url || '' : '',
     approvedAt: a.approvedAt || 0,
     downloads: Number(s.dl) || 0,
     rating: rcnt ? round1(Number(s.rsum) / rcnt) : 0,
@@ -370,8 +417,55 @@ async function purgeUser(email) {
   for (const id of await allAppIds()) {
     if ((await R('HDEL', 'rev:' + id, email)) > 0) await recalc(id);
   }
-  await pipe([['DEL', 'user:' + email], ['SREM', 'users', email], ['DEL', 'usersubs:' + email]]);
+  const fbIds = (await R('SMEMBERS', 'fbuser:' + email)) || [];
+  await pipe([
+    ['DEL', 'user:' + email], ['SREM', 'users', email], ['DEL', 'usersubs:' + email], ['SREM', 'reviewreq', email], ['SREM', 'reviewers', email], ['DEL', 'fbuser:' + email],
+    ...fbIds.flatMap((id) => [['DEL', 'fb:' + id], ['SREM', 'fb:new', id], ['SREM', 'fb:done', id]]),
+  ]);
   invalidate();
+}
+const hostName = (u) => new URL(u).hostname.replace(/^www\./, '');
+const linkId = (u) => 'link--' + slug(hostName(u) + new URL(u).pathname).slice(0, 28) + '-' + sha(u.toLowerCase()).slice(0, 6);
+const siteIcon = (u) => new URL(u).origin + '/favicon.ico';
+/** Builds a new Store record from a submission. Returns { app, verified }. `by` is the user, or null when the admin adds it. */
+async function createApp(b, by) {
+  const listing = validateListing(b);
+  const given = b.url ? cleanUrl(b.url) : '';
+  let app;
+  let verified = false;
+  if (b.kind === 'link') {
+    if (!given) fail(400, 'Enter the website address.');
+    if (!listing.title) fail(400, 'Give the app a name.');
+    const host = hostName(given);
+    app = {
+      id: linkId(given), kind: 'link', url: given, owner: '', repo: '', ref: '', subdir: '', title: listing.title, description: listing.description, category: listing.category,
+      publisher: host, publisherName: host, publisherUrl: new URL(given).origin, avatar: '', stars: 0, license: '', iconUrl: siteIcon(given), verified: false, files: 0, size: 0,
+    };
+  } else {
+    const info = await verifyRepo(b.repo);
+    verified = info.verified;
+    const base = {
+      owner: info.owner, repo: info.repo, ref: info.ref, subdir: info.subdir, title: listing.title || info.repo, description: listing.description, category: listing.category,
+      publisher: info.publisher, publisherName: info.publisherName, publisherUrl: info.publisherUrl, avatar: info.avatar, stars: info.stars, license: info.license,
+      verified: info.verified, files: info.files, size: info.size,
+    };
+    if (info.noIndex) {
+      const url = given || info.homepage || info.pagesUrl;
+      if (!url) fail(400, 'This repository has no index.html. If the app runs online (GitHub Pages, Vercel or similar), enter its website address too and it will be listed as a web app.', { code: 'needs_url' });
+      app = { ...base, id: appId(info), kind: 'link', url, iconUrl: siteIcon(url) };
+    } else app = { ...base, id: appId(info), kind: 'repo', iconUrl: info.iconUrl };
+  }
+  Object.assign(app, {
+    status: by ? 'pending' : 'approved',
+    submittedBy: by ? by.email : cfg().adminEmail,
+    submittedByName: by ? by.name : 'Admin',
+    submittedAt: now(),
+    approvedAt: by ? 0 : now(),
+    decidedBy: by ? '' : 'admin',
+    note: '',
+    featured: false,
+  });
+  return { app, verified };
 }
 function validateListing(b, { partial = false } = {}) {
   const out = {};
@@ -395,7 +489,7 @@ const route = (method, path, fn) => ROUTES.push({ method, parts: path.split('/')
 
 /* ---- health ---- */
 route('GET', 'health', async () => ({ ok: true, db: !!(cfg().url && cfg().token), adminPassword: !!cfg().adminPassword, githubToken: !!cfg().github }));
-route('GET', 'store/meta', async () => ({ categories: CATEGORIES, questions: QUESTIONS }));
+route('GET', 'store/meta', async () => ({ categories: CATEGORIES, questions: QUESTIONS, reviewStreak: REVIEW_STREAK }));
 
 /* ---- accounts ---- */
 route('POST', 'auth/register', async (req, res, b, ctx) => {
@@ -613,48 +707,19 @@ route('DELETE', 'store/apps/:id/review', async (req, res, b, ctx) => {
 route('POST', 'store/submit', async (req, res, b) => {
   const u = await needUser(req);
   await limit('submit', sha(u.email), 10, 86400, 'You can send up to 10 requests per day. Please try again tomorrow.');
-  const listing = validateListing(b);
-  const info = await verifyRepo(b.repo);
-  const id = appId(info);
-  if (await R('EXISTS', 'app:' + id)) fail(409, 'This app is already in the store or waiting for approval.');
+  const { app, verified } = await createApp(b, u);
+  if (await R('EXISTS', 'app:' + app.id)) fail(409, 'This app is already in the store or waiting for approval.');
   const pending = (await R('SMEMBERS', 'usersubs:' + u.email)) || [];
   const mine = (await loadApps(pending)).filter((x) => x.app.status === 'pending');
   if (mine.length >= 10) fail(429, 'You already have 10 requests waiting. Please wait for them to be reviewed.');
-  const app = {
-    id,
-    owner: info.owner,
-    repo: info.repo,
-    ref: info.ref,
-    subdir: info.subdir,
-    title: listing.title || info.repo,
-    description: listing.description,
-    category: listing.category,
-    publisher: info.publisher,
-    publisherName: info.publisherName,
-    publisherUrl: info.publisherUrl,
-    avatar: info.avatar,
-    stars: info.stars,
-    license: info.license,
-    iconUrl: info.iconUrl,
-    verified: info.verified,
-    files: info.files,
-    size: info.size,
-    status: 'pending',
-    submittedBy: u.email,
-    submittedByName: u.name,
-    submittedAt: now(),
-    approvedAt: 0,
-    note: '',
-    featured: false,
-  };
-  await jset('app:' + id, app);
-  await pipe([['SADD', 'apps:pending', id], ['SADD', 'usersubs:' + u.email, id]]);
-  return { ok: true, id, verified: info.verified };
+  await jset('app:' + app.id, app);
+  await pipe([['SADD', 'apps:pending', app.id], ['SADD', 'usersubs:' + u.email, app.id]]);
+  return { ok: true, id: app.id, kind: app.kind, verified: app.kind === 'link' ? false : verified };
 });
 route('GET', 'store/mine', async (req) => {
   const u = await needUser(req);
   const ids = (await R('SMEMBERS', 'usersubs:' + u.email)) || [];
-  const rows = (await loadApps(ids)).map((x) => ({ id: x.app.id, title: x.app.title, repo: `${x.app.owner}/${x.app.repo}`, status: x.app.status, note: x.app.note || '', submittedAt: x.app.submittedAt }));
+  const rows = (await loadApps(ids)).map((x) => ({ id: x.app.id, title: x.app.title, repo: x.app.owner ? `${x.app.owner}/${x.app.repo}` : hostName(x.app.url), kind: x.app.kind === 'link' ? 'link' : 'repo', status: x.app.status, note: x.app.note || '', submittedAt: x.app.submittedAt }));
   rows.sort((a, b2) => b2.submittedAt - a.submittedAt);
   return { submissions: rows };
 });
@@ -681,13 +746,15 @@ route('GET', 'admin/me', async (req) => {
 });
 route('GET', 'admin/overview', async (req) => {
   needAdmin(req);
-  const [users, pending, approved, rejected] = await pipe([['SCARD', 'users'], ['SCARD', 'apps:pending'], ['SCARD', 'apps:approved'], ['SCARD', 'apps:rejected']]);
+  const [users, pending, approved, rejected, messages, reviewRequests] = await pipe([['SCARD', 'users'], ['SCARD', 'apps:pending'], ['SCARD', 'apps:approved'], ['SCARD', 'apps:rejected'], ['SCARD', 'fb:new'], ['SCARD', 'reviewreq']]);
   const list = await approvedList();
   return {
     users,
     pending,
     approved,
     rejected,
+    messages,
+    reviewRequests,
     downloads: list.reduce((n, a) => n + a.downloads, 0),
     reviews: list.reduce((n, a) => n + a.ratingCount, 0),
   };
@@ -713,28 +780,56 @@ async function needApp(id) {
   if (!a) fail(404, 'App not found.');
   return a;
 }
+/** Keeps track of how many apps in a row a person got approved (used for reviewer accounts). */
+async function countDecision(a, approved) {
+  if (!a.submittedBy || a.submittedBy === cfg().adminEmail) return;
+  const u = await jget('user:' + a.submittedBy);
+  if (!u) return;
+  if (approved) {
+    if (a.counted) return;
+    a.counted = true;
+    u.streak = (u.streak || 0) + 1;
+  } else {
+    if (a.status === 'rejected') return;
+    u.streak = 0;
+  }
+  await jset('user:' + u.email, u);
+}
+async function decide(a, kind, b, actor) {
+  if (kind === 'approve') {
+    Object.assign(a, validateListing(b, { partial: true }));
+    if (!a.title) a.title = a.repo || (a.url ? hostName(a.url) : 'App');
+    a.approvedAt = a.approvedAt || now();
+    a.note = '';
+    await countDecision(a, true);
+    await R('HSETNX', 'stats:' + a.id, 'dl', 0);
+  } else {
+    a.note = clean(b.note, 300);
+    await countDecision(a, false);
+  }
+  a.decidedBy = actor.id;
+  a.decidedByName = actor.name;
+  await moveApp(a, kind === 'approve' ? 'approved' : 'rejected');
+}
+const ADMIN_ACTOR = () => ({ id: 'admin', name: 'Admin' });
 route('POST', 'admin/apps/:id/approve', async (req, res, b, ctx) => {
   needAdmin(req);
   const a = await needApp(ctx.params.id);
-  Object.assign(a, validateListing(b, { partial: true }));
-  if (!a.title) a.title = a.repo;
   if (b.featured !== undefined) a.featured = !!b.featured;
-  a.approvedAt = a.approvedAt || now();
-  a.note = '';
-  await R('HSETNX', 'stats:' + a.id, 'dl', 0);
-  await moveApp(a, 'approved');
+  await decide(a, 'approve', b, ADMIN_ACTOR());
   return { ok: true };
 });
 route('POST', 'admin/apps/:id/reject', async (req, res, b, ctx) => {
   needAdmin(req);
-  const a = await needApp(ctx.params.id);
-  a.note = clean(b.note, 300);
-  await moveApp(a, 'rejected');
+  await decide(await needApp(ctx.params.id), 'reject', b, ADMIN_ACTOR());
   return { ok: true };
 });
 route('POST', 'admin/apps/:id/unpublish', async (req, res, b, ctx) => {
   needAdmin(req);
-  await moveApp(await needApp(ctx.params.id), 'pending');
+  const a = await needApp(ctx.params.id);
+  a.decidedBy = 'admin';
+  a.decidedByName = 'Admin';
+  await moveApp(a, 'pending');
   return { ok: true };
 });
 route('POST', 'admin/apps/:id/edit', async (req, res, b, ctx) => {
@@ -749,35 +844,33 @@ route('POST', 'admin/apps/:id/edit', async (req, res, b, ctx) => {
 route('POST', 'admin/apps/:id/verify', async (req, res, b, ctx) => {
   needAdmin(req);
   const a = await needApp(ctx.params.id);
+  if (!a.owner) fail(400, 'This is a plain web link, so there is no GitHub repository to check.');
   const info = await verifyRepo({ owner: a.owner, repo: a.repo, ref: a.ref, subdir: a.subdir });
-  Object.assign(a, { publisher: info.publisher, publisherName: info.publisherName, publisherUrl: info.publisherUrl, avatar: info.avatar, stars: info.stars, license: info.license, iconUrl: info.iconUrl || a.iconUrl, verified: info.verified, files: info.files, size: info.size });
+  Object.assign(a, { publisher: info.publisher, publisherName: info.publisherName, publisherUrl: info.publisherUrl, avatar: info.avatar, stars: info.stars, license: info.license, iconUrl: a.kind === 'link' ? a.iconUrl : info.iconUrl || a.iconUrl, verified: info.verified, files: info.files, size: info.size });
   await jset('app:' + a.id, a);
   invalidate();
   return { ok: true, verified: info.verified };
 });
-route('DELETE', 'admin/apps/:id', async (req, res, b, ctx) => {
-  needAdmin(req);
-  const a = await needApp(ctx.params.id);
+async function removeApp(a) {
   const cmds = [['DEL', 'app:' + a.id], ['DEL', 'stats:' + a.id], ['DEL', 'rev:' + a.id], ['SREM', 'apps:pending', a.id], ['SREM', 'apps:approved', a.id], ['SREM', 'apps:rejected', a.id]];
   if (a.submittedBy) cmds.push(['SREM', 'usersubs:' + a.submittedBy, a.id]);
   await pipe(cmds);
   invalidate();
+}
+route('DELETE', 'admin/apps/:id', async (req, res, b, ctx) => {
+  needAdmin(req);
+  await removeApp(await needApp(ctx.params.id));
   return { ok: true };
 });
 route('POST', 'admin/add', async (req, res, b) => {
   needAdmin(req);
-  const listing = validateListing(b);
-  const info = await verifyRepo(b.repo);
-  const id = appId(info);
-  if (await R('EXISTS', 'app:' + id)) fail(409, 'That app already exists.');
-  await jset('app:' + id, {
-    id, owner: info.owner, repo: info.repo, ref: info.ref, subdir: info.subdir, title: listing.title || info.repo, description: listing.description, category: listing.category,
-    publisher: info.publisher, publisherName: info.publisherName, publisherUrl: info.publisherUrl, avatar: info.avatar, stars: info.stars, license: info.license, iconUrl: info.iconUrl,
-    verified: info.verified, files: info.files, size: info.size, status: 'approved', submittedBy: cfg().adminEmail, submittedByName: 'Admin', submittedAt: now(), approvedAt: now(), note: '', featured: !!b.featured,
-  });
-  await pipe([['SADD', 'apps:approved', id], ['HSETNX', 'stats:' + id, 'dl', 0]]);
+  const { app, verified } = await createApp(b, null);
+  if (await R('EXISTS', 'app:' + app.id)) fail(409, 'That app already exists.');
+  if (b.featured) app.featured = true;
+  await jset('app:' + app.id, app);
+  await pipe([['SADD', 'apps:approved', app.id], ['HSETNX', 'stats:' + app.id, 'dl', 0]]);
   invalidate();
-  return { ok: true, id, verified: info.verified };
+  return { ok: true, id: app.id, kind: app.kind, verified };
 });
 route('GET', 'admin/apps/:id/reviews', async (req, res, b, ctx) => {
   needAdmin(req);
@@ -799,7 +892,7 @@ route('GET', 'admin/users', async (req) => {
   needAdmin(req);
   const emails = (await R('SMEMBERS', 'users')) || [];
   const rows = emails.length ? (await pipe(emails.map((e) => ['GET', 'user:' + e]))).filter(Boolean).map((v) => JSON.parse(v)) : [];
-  const users = rows.map((u) => ({ email: u.email, name: u.name, created: u.created }));
+  const users = rows.map((u) => ({ email: u.email, name: u.name, created: u.created, reviewer: !!u.reviewer, streak: u.streak || 0, requested: !!u.revReq }));
   users.sort((a, b2) => b2.created - a.created);
   return { users };
 });
@@ -808,6 +901,156 @@ route('DELETE', 'admin/users', async (req, res, b, ctx) => {
   const email = clean(ctx.url.searchParams.get('email'), 254).toLowerCase();
   if (!isEmail(email)) fail(400, 'Enter a valid email address.');
   await purgeUser(email);
+  return { ok: true };
+});
+
+
+/* ================================================================= reviewer accounts */
+const needReviewer = async (req) => {
+  const u = await needUser(req);
+  if (!u.reviewer) fail(403, 'Reviewer access is needed for this.');
+  return u;
+};
+route('POST', 'reviewer/request', async (req, res, b) => {
+  const u = await needUser(req);
+  if (u.reviewer) fail(409, 'You are already an app reviewer.');
+  if (u.revReq) fail(409, 'Your request is already waiting for the admin.');
+  if ((u.streak || 0) < REVIEW_STREAK) fail(400, `You need ${REVIEW_STREAK} approved apps in a row first. You have ${u.streak || 0}.`);
+  if (u.revDeniedAt && now() < u.revDeniedAt + 7 * 864e5) fail(429, 'Your last request was not accepted. You can ask again after a week.');
+  u.revReq = { at: now(), message: clean(b.message, 400) };
+  await jset('user:' + u.email, u);
+  await R('SADD', 'reviewreq', u.email);
+  return { user: publicUser(u) };
+});
+
+/** Reviewers may judge requests from other people. They cannot touch admin-added apps, decisions made by the admin, or their own requests. */
+const reviewerCan = (a, rv) => a.submittedBy !== cfg().adminEmail && a.submittedBy !== rv.email && a.decidedBy !== 'admin';
+const reviewRow = (x, rv) => {
+  const a = x.app;
+  return {
+    id: a.id, title: a.title, description: a.description, category: a.category, kind: a.kind === 'link' ? 'link' : 'repo', url: a.kind === 'link' ? a.url : '',
+    owner: a.owner, repo: a.repo, subdir: a.subdir || '', publisherName: a.publisherName, iconUrl: a.iconUrl || '', verified: !!a.verified, files: a.files || 0, size: a.size || 0,
+    status: a.status, note: a.note || '', submittedAt: a.submittedAt, submittedByName: a.submittedBy === cfg().adminEmail ? 'Admin' : a.submittedByName || '',
+    byAdmin: a.submittedBy === cfg().adminEmail, decidedByName: a.decidedByName || '', mine: a.submittedBy === rv.email, can: reviewerCan(a, rv), downloads: Number(x.stats.dl) || 0,
+  };
+};
+route('GET', 'review/apps', async (req, res, b, ctx) => {
+  const rv = await needReviewer(req);
+  const status = ctx.url.searchParams.get('status');
+  if (!['pending', 'approved', 'rejected'].includes(status)) fail(400, 'Unknown status.');
+  const ids = (await R('SMEMBERS', 'apps:' + status)) || [];
+  const rows = (await loadApps(ids)).map((x) => reviewRow(x, rv));
+  rows.sort((a, b2) => (b2.submittedAt || 0) - (a.submittedAt || 0));
+  const counts = (await pipe([['SCARD', 'apps:pending'], ['SCARD', 'apps:approved'], ['SCARD', 'apps:rejected']])).map(Number);
+  return { apps: rows, counts: { pending: counts[0], approved: counts[1], rejected: counts[2] } };
+});
+async function reviewTarget(req, id) {
+  const rv = await needReviewer(req);
+  await limit('review', sha(rv.email), 200, 86400, 'That is a lot of reviews for one day. Please continue tomorrow.');
+  const a = await needApp(id);
+  if (!reviewerCan(a, rv)) fail(403, a.submittedBy === rv.email ? 'You cannot review your own request.' : 'Apps and decisions from the admin can only be changed by the admin.');
+  return { rv, a };
+}
+route('POST', 'review/apps/:id/approve', async (req, res, b, ctx) => {
+  const { rv, a } = await reviewTarget(req, ctx.params.id);
+  await decide(a, 'approve', b, { id: rv.email, name: rv.name });
+  return { ok: true };
+});
+route('POST', 'review/apps/:id/reject', async (req, res, b, ctx) => {
+  const { rv, a } = await reviewTarget(req, ctx.params.id);
+  await decide(a, 'reject', b, { id: rv.email, name: rv.name });
+  return { ok: true };
+});
+route('POST', 'review/apps/:id/unpublish', async (req, res, b, ctx) => {
+  const { rv, a } = await reviewTarget(req, ctx.params.id);
+  a.decidedBy = rv.email;
+  a.decidedByName = rv.name;
+  await moveApp(a, 'pending');
+  return { ok: true };
+});
+route('DELETE', 'review/apps/:id', async (req, res, b, ctx) => {
+  const { a } = await reviewTarget(req, ctx.params.id);
+  await removeApp(a);
+  return { ok: true };
+});
+
+/* ---- admin: reviewer requests and roles ---- */
+route('GET', 'admin/reviewers', async (req) => {
+  needAdmin(req);
+  const [reqs, revs] = await pipe([['SMEMBERS', 'reviewreq'], ['SMEMBERS', 'reviewers']]);
+  const load = async (emails) => (emails && emails.length ? (await pipe(emails.map((e) => ['GET', 'user:' + e]))).filter(Boolean).map((v) => JSON.parse(v)) : []);
+  const row = (u) => ({ email: u.email, name: u.name, streak: u.streak || 0, message: (u.revReq && u.revReq.message) || '', at: (u.revReq && u.revReq.at) || 0 });
+  return { requests: (await load(reqs)).map(row), reviewers: (await load(revs)).map(row) };
+});
+route('POST', 'admin/reviewers', async (req, res, b) => {
+  needAdmin(req);
+  const email = clean(b.email, 254).toLowerCase();
+  const u = isEmail(email) ? await jget('user:' + email) : null;
+  if (!u) fail(404, 'That account was not found.');
+  const action = b.action;
+  if (action === 'grant') {
+    u.reviewer = true;
+    delete u.revReq;
+    await pipe([['SREM', 'reviewreq', email], ['SADD', 'reviewers', email]]);
+  } else if (action === 'deny') {
+    delete u.revReq;
+    u.revDeniedAt = now();
+    await R('SREM', 'reviewreq', email);
+  } else if (action === 'revoke') {
+    u.reviewer = false;
+    await R('SREM', 'reviewers', email);
+  } else fail(400, 'Unknown action.');
+  await jset('user:' + email, u);
+  return { ok: true };
+});
+
+/* ================================================================= messages to the admin (feature requests, bug reports) */
+const FB_TYPES = ['feature', 'bug', 'other'];
+route('POST', 'feedback/send', async (req, res, b) => {
+  const u = await needUser(req);
+  await limit('fb', sha(u.email), 5, 86400, 'You can send up to 5 messages per day. Please try again tomorrow.');
+  const type = FB_TYPES.includes(b.type) ? b.type : 'other';
+  const subject = clean(b.subject, 80);
+  const message = clean(b.message, 1500);
+  if (subject.length < 3) fail(400, 'Add a short title (at least 3 characters).');
+  if (message.length < 10) fail(400, 'Please write a little more (at least 10 characters).');
+  const id = now().toString(36) + crypto.randomBytes(3).toString('hex');
+  await jset('fb:' + id, { id, type, subject, message, email: u.email, name: u.name, version: clean(b.version, 20), at: now(), status: 'new', reply: '', repliedAt: 0 });
+  await pipe([['SADD', 'fb:new', id], ['SADD', 'fbuser:' + u.email, id]]);
+  return { ok: true, id };
+});
+route('GET', 'feedback/mine', async (req) => {
+  const u = await needUser(req);
+  const ids = (await R('SMEMBERS', 'fbuser:' + u.email)) || [];
+  const rows = ids.length ? (await pipe(ids.map((i) => ['GET', 'fb:' + i]))).filter(Boolean).map((v) => JSON.parse(v)) : [];
+  rows.sort((a, b2) => b2.at - a.at);
+  return { messages: rows.slice(0, 30).map((m) => ({ id: m.id, type: m.type, subject: m.subject, message: m.message, at: m.at, status: m.status, reply: m.reply || '', repliedAt: m.repliedAt || 0 })) };
+});
+route('GET', 'admin/feedback', async (req, res, b, ctx) => {
+  needAdmin(req);
+  const status = ctx.url.searchParams.get('status') === 'done' ? 'done' : 'new';
+  const ids = (await R('SMEMBERS', 'fb:' + status)) || [];
+  const rows = ids.length ? (await pipe(ids.map((i) => ['GET', 'fb:' + i]))).filter(Boolean).map((v) => JSON.parse(v)) : [];
+  rows.sort((a, b2) => b2.at - a.at);
+  return { messages: rows };
+});
+route('POST', 'admin/feedback/:id', async (req, res, b, ctx) => {
+  needAdmin(req);
+  const m = await jget('fb:' + ctx.params.id);
+  if (!m) fail(404, 'Message not found.');
+  if (b.reply !== undefined) {
+    m.reply = clean(b.reply, 1000);
+    m.repliedAt = m.reply ? now() : 0;
+  }
+  if (b.status === 'done' || b.status === 'new') m.status = b.status;
+  await jset('fb:' + m.id, m);
+  await pipe([['SREM', 'fb:new', m.id], ['SREM', 'fb:done', m.id], ['SADD', 'fb:' + m.status, m.id]]);
+  return { ok: true };
+});
+route('DELETE', 'admin/feedback/:id', async (req, res, b, ctx) => {
+  needAdmin(req);
+  const m = await jget('fb:' + ctx.params.id);
+  if (m) await pipe([['DEL', 'fb:' + m.id], ['SREM', 'fb:new', m.id], ['SREM', 'fb:done', m.id], ['SREM', 'fbuser:' + m.email, m.id]]);
   return { ok: true };
 });
 
