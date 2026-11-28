@@ -757,3 +757,16 @@ a.btn.primary { color: var(--accent-fg); }
   .tt-side { zoom: .62; gap: .4rem; max-height: 100%; overflow: hidden; }
   .md-art-ico { width: 72px; height: 72px; }
 }
+
+/* Store: web apps, reviewer queue, messages */
+.st-progress { height: 8px; border-radius: 99px; background: var(--surface-2); border: 1px solid var(--border); overflow: hidden; }
+.st-progress i { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 55%, #8b5cf6)); transition: width .3s var(--ease); }
+.rv-list { gap: .7rem; }
+.rv-card { display: grid; gap: .5rem; padding: .8rem; border-radius: var(--r); background: var(--surface-2); border: 1px solid var(--border); }
+.rv-chips, .rv-acts { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; }
+.rv-acts { padding-top: .2rem; }
+.fb-msg { display: grid; gap: .25rem; padding: .7rem .8rem; border-radius: var(--r-sm); background: var(--surface-2); border: 1px solid var(--border); }
+.fb-h { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
+.fb-body { white-space: pre-wrap; overflow-wrap: anywhere; font-size: .875rem; }
+.fb-reply { margin-top: .3rem; padding: .55rem .7rem; border-radius: var(--r-sm); background: color-mix(in srgb, var(--accent) 12%, transparent); border-left: 3px solid var(--accent); font-size: .875rem; }
+.fb-reply p { white-space: pre-wrap; overflow-wrap: anywhere; }

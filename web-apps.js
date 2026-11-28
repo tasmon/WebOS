@@ -88,12 +88,26 @@ export function openPopup(url, w = 1100, hgt = 760) {
   if (!win) toast('Your browser blocked the new window. Allow pop-ups for this site and try again.', { kind: 'error' });
 }
 
+// "popup" is what most people want: the site runs in its own browser tab or window, exactly as the website intends.
 const MODES = [
-  { value: 'window', label: 'In a WebOS window' },
-  { value: 'popup', label: 'In its own browser window' },
-  { value: 'tab', label: 'In a new browser tab' },
+  { value: 'popup', label: 'In its own browser tab (recommended)' },
+  { value: 'window', label: 'Inside a WebOS window' },
 ];
-export const modeLabel = (m) => (MODES.find((x) => x.value === m) || MODES[0]).label;
+const LABELS = { popup: 'In its own browser tab', window: 'Inside a WebOS window', tab: 'In a new browser tab' };
+export const modeLabel = (m) => LABELS[m] || LABELS.popup;
+
+/** A new web shortcut record, ready for putApp(). Extra fields (for example storeId) can be passed in `extra`. */
+export async function newLinkRecord({ url, name, openIn = 'popup', description = '', extra = {} }) {
+  const base = 'web-' + (hostOf(url) + new URL(url).pathname).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
+  let id = base;
+  for (let i = 2; await getApp(id); i++) id = base + '-' + i;
+  const now = Date.now();
+  return {
+    id, name: (name || niceName(url)).slice(0, 60), description: description || hostOf(url), version: '', author: '', display: 'window', width: 1000, height: 680, icon: null, size: 0, fileCount: 0,
+    source: 'link', sourceUrl: url, installedAt: now, updatedAt: now, lastOpened: 0, openCount: 0, pinned: false,
+    kind: 'link', url, openIn, favicon: faviconOf(url), ...extra,
+  };
+}
 
 /**
  * Add or edit a web shortcut. Resolves to the saved app record, or null.
@@ -104,7 +118,7 @@ export function openShortcutDialog(opts = {}) {
   const url = h('input', { class: 'input', type: 'text', inputmode: 'url', placeholder: 'web.whatsapp.com or https://…', value: editing ? editing.url : opts.url || '', spellcheck: 'false', autocomplete: 'off', autocapitalize: 'off' });
   const name = h('input', { class: 'input', maxlength: '60', placeholder: 'Name', value: editing ? editing.name : opts.name || '' });
   const mode = h('select', { class: 'select full' }, MODES.map((m) => h('option', { value: m.value }, m.label)));
-  mode.value = editing ? editing.openIn || 'window' : 'window';
+  mode.value = editing && editing.openIn === 'window' ? 'window' : 'popup';
   const hint = h('div', { class: 'hint-box', hidden: true });
   const err = h('div', { class: 'form-err', role: 'alert', hidden: true });
   let nameTouched = !!(editing || opts.name);
@@ -115,9 +129,11 @@ export function openShortcutDialog(opts = {}) {
     if (u && !nameTouched) name.value = niceName(u);
     const blocked = !!u && blocksFraming(u);
     hint.hidden = !blocked;
+    mode.disabled = false;
     if (blocked) {
-      hint.replaceChildren(ico('info', 16), h('span', null, `${hostOf(u)} does not allow being shown inside other pages, so it works best in its own browser window.`));
-      if (!modeTouched) mode.value = 'popup';
+      hint.replaceChildren(ico('info', 16), h('span', null, `${hostOf(u)} does not allow being shown inside other pages, so it needs its own browser tab.`));
+      mode.value = 'popup';
+      mode.disabled = true;
     }
   };
   name.addEventListener('input', () => (nameTouched = true));
@@ -154,19 +170,8 @@ export function openShortcutDialog(opts = {}) {
           }
           const nm = (name.value.trim() || niceName(u)).slice(0, 60);
           let rec;
-          if (editing) {
-            rec = { ...editing, name: nm, url: u, sourceUrl: u, description: hostOf(u), openIn: mode.value, favicon: faviconOf(u), updatedAt: Date.now() };
-          } else {
-            const base = 'web-' + (hostOf(u) + new URL(u).pathname).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
-            let id = base;
-            for (let i = 2; await getApp(id); i++) id = base + '-' + i;
-            const now = Date.now();
-            rec = {
-              id, name: nm, description: hostOf(u), version: '', author: '', display: 'window', width: 1000, height: 680, icon: null, size: 0, fileCount: 0,
-              source: 'link', sourceUrl: u, installedAt: now, updatedAt: now, lastOpened: 0, openCount: 0, pinned: false,
-              kind: 'link', url: u, openIn: mode.value, favicon: faviconOf(u),
-            };
-          }
+          if (editing) rec = { ...editing, name: nm, url: u, sourceUrl: u, description: editing.storeId ? editing.description : hostOf(u), openIn: mode.value, favicon: faviconOf(u), updatedAt: Date.now() };
+          else rec = await newLinkRecord({ url: u, name: nm, openIn: mode.value });
           await putApp(rec);
           api.close(rec);
           return false;

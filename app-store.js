@@ -39,17 +39,18 @@ function appIcon(a, size = 56) {
     t.replaceChildren(h('span', { class: 'ltr' }, ([...(a.title || '?')][0] || '?').toUpperCase()));
     t.style.background = `linear-gradient(135deg, hsl(${hue(a.title)} 70% 55%), hsl(${(hue(a.title) + 40) % 360} 70% 42%))`;
   };
-  if (a.iconUrl && SAFE_IMG.test(a.iconUrl)) {
-    const img = h('img', { src: a.iconUrl, alt: '', draggable: 'false', loading: 'lazy' });
+  if (a.iconUrl && (SAFE_IMG.test(a.iconUrl) || (a.kind === 'link' && /^https:\/\//.test(a.iconUrl)))) {
+    const img = h('img', { src: a.iconUrl, alt: '', draggable: 'false', loading: 'lazy', referrerpolicy: 'no-referrer' });
     img.addEventListener('error', letter);
     t.append(img);
   } else letter();
   return t;
 }
 const publisher = (a) => (SAFE_LINK.test(a.publisherUrl || '') ? h('a', { href: a.publisherUrl, target: '_blank', rel: 'noopener noreferrer' }, a.publisherName) : h('span', null, a.publisherName));
+const hostOf = (u) => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return ''; } };
 const field = (label, input, hint) => h('label', { class: 'field' }, h('span', { class: 'field-label' }, label), input, hint && h('span', { class: 'hint' }, hint));
 
-export function buildStore(host) {
+export function buildStore(host, startArg) {
   const root = h('div', { class: 'store' });
   const st = { me: undefined, meta: null, q: '', cat: '', sort: 'popular' };
   const stack = [];
@@ -146,8 +147,8 @@ export function buildStore(host) {
       h('span', { class: 'st-acct-t' }, st.me ? st.me.name : 'Sign in')
     );
     const left = stack.length > 1 ? h('button', { class: 'btn ghost small icon', title: 'Back', 'aria-label': 'Back', onclick: back }, ico('chevronl', 18)) : h('span', { class: 'st-logo' }, ico('store', 20));
-    const title = h('b', { class: 'st-title' }, { home: 'Store', detail: 'App details', account: 'Account', submit: 'Request an app' }[view.name] || 'Store');
-    return h('div', { class: 'st-head' }, left, title, h('span', { class: 'grow' }), view.name === 'home' && h('button', { class: 'btn small st-req', onclick: () => nav('submit') }, ico('plus', 15), h('span', { class: 'lbl' }, 'Request an app')), account);
+    const title = h('b', { class: 'st-title' }, { home: 'Store', detail: 'App details', account: 'Account', submit: 'Request an app', feedback: 'Message the admin', review: 'Review requests' }[view.name] || 'Store');
+    return h('div', { class: 'st-head' }, left, title, h('span', { class: 'grow' }), view.name === 'home' && st.me && st.me.reviewer && h('button', { class: 'btn small ghost', onclick: () => nav('review'), title: 'Review requests' }, ico('check', 15), h('span', { class: 'lbl' }, 'Review')), view.name === 'home' && h('button', { class: 'btn small st-req', onclick: () => nav('submit') }, ico('plus', 15), h('span', { class: 'lbl' }, 'Request an app')), account);
   }
 
   async function render() {
@@ -156,7 +157,7 @@ export function buildStore(host) {
     const view = cur();
     const body = h('div', { class: 'st-scroll' });
     root.replaceChildren(header(view), body);
-    const views = { home: viewHome, detail: viewDetail, account: viewAccount, submit: viewSubmit };
+    const views = { home: viewHome, detail: viewDetail, account: viewAccount, submit: viewSubmit, feedback: viewFeedback, review: viewReview };
     try {
       await views[view.name](body, view.arg, () => my === token && !destroyed);
     } catch (e) {
@@ -173,7 +174,7 @@ export function buildStore(host) {
       { class: 'st-empty' },
       h('div', { class: 'st-empty-ico' }, ico(e && e.code === 'offline' ? 'wifioff' : 'store', 34)),
       h('h3', null, setup ? 'The Store is not ready yet' : 'Could not load the Store'),
-      h('p', null, setup ? (e.code === 'no_db' ? 'The store database has not been connected. If you run this site, follow the Store setup steps in DEVELOPERS.md.' : msg) : msg),
+      h('p', null, setup ? (e.code === 'no_db' ? 'The Store is not available on this site right now. Please try again later.' : msg) : msg),
       h('button', { class: 'btn primary', onclick: () => render() }, ico('refresh', 16), 'Try again')
     );
   }
@@ -246,7 +247,7 @@ export function buildStore(host) {
       h('div', { class: 'st-card-top' }, appIcon(a, 52), h('div', { class: 'st-card-id' }, h('b', null, a.title), h('span', { class: 'by' }, 'by ', a.publisherName))),
       h('p', { class: 'st-desc' }, a.description),
       h('div', { class: 'st-meta' }, h('span', { class: 'rate' }, stars(a.rating, 12), h('em', null, a.ratingCount ? a.rating.toFixed(1) : 'New')), h('span', { class: 'dl', title: 'Downloads' }, ico('download', 13), fmtN(a.downloads)), a.featured && h('span', { class: 'chip ok' }, 'Featured')),
-      h('div', { class: 'st-card-foot' }, h('span', { class: 'chip' }, a.category), installButton(a))
+      h('div', { class: 'st-card-foot' }, h('span', { class: 'chip' }, a.category), a.kind === 'link' && h('span', { class: 'chip', title: 'Opens a website in its own browser tab' }, 'Web app'), installButton(a))
     );
   }
 
@@ -256,23 +257,21 @@ export function buildStore(host) {
     const [r] = await Promise.all([get('store/apps/' + encodeURIComponent(id)), st.me === undefined ? loadMe() : 0]);
     if (!live()) return;
     const a = r.app;
-    const ghUrl = `https://github.com/${a.owner}/${a.repo}`;
+    const isLink = a.kind === 'link';
+    const ghUrl = a.owner ? `https://github.com/${a.owner}/${a.repo}` : '';
     const reviewsBox = h('div', { class: 'st-reviews' });
-    const facts = [
-      [a.category, 'Category'],
-      [fmtN(a.downloads), 'Downloads'],
-      [a.stars ? fmtN(a.stars) : '0', 'GitHub stars'],
-      [a.license || 'Not stated', 'License'],
-    ];
+    const facts = isLink
+      ? [[a.category, 'Category'], [fmtN(a.downloads), 'Downloads'], ['Web app', 'Type'], [hostOf(a.url), 'Website']]
+      : [[a.category, 'Category'], [fmtN(a.downloads), 'Downloads'], [a.stars ? fmtN(a.stars) : '0', 'GitHub stars'], [a.license || 'Not stated', 'License']];
     body.replaceChildren(
       h(
         'div',
         { class: 'st-detail' },
-        h('div', { class: 'st-hero' }, appIcon(a, 84), h('div', { class: 'st-hero-t' }, h('h2', null, a.title), h('div', { class: 'by' }, 'by ', publisher(a)), h('div', { class: 'st-meta' }, stars(a.rating, 15), h('em', null, a.ratingCount ? `${a.rating.toFixed(1)} · ${a.ratingCount} rating${a.ratingCount === 1 ? '' : 's'}` : 'No ratings yet')), h('div', { class: 'row' }, installButton(a, true), h('a', { class: 'btn big', href: ghUrl, target: '_blank', rel: 'noopener noreferrer' }, ico('github', 17), 'Source')))),
+        h('div', { class: 'st-hero' }, appIcon(a, 84), h('div', { class: 'st-hero-t' }, h('h2', null, a.title), h('div', { class: 'by' }, 'by ', publisher(a)), h('div', { class: 'st-meta' }, stars(a.rating, 15), h('em', null, a.ratingCount ? `${a.rating.toFixed(1)} · ${a.ratingCount} rating${a.ratingCount === 1 ? '' : 's'}` : 'No ratings yet')), h('div', { class: 'row' }, installButton(a, true), ghUrl && h('a', { class: 'btn big', href: ghUrl, target: '_blank', rel: 'noopener noreferrer' }, ico('github', 17), 'Source')))),
         h('div', { class: 'st-facts' }, facts.map(([v, l]) => h('div', null, h('b', null, v), h('span', null, l)))),
         h('h3', null, 'About this app'),
         h('p', { class: 'st-about' }, a.description),
-        h('div', { class: 'st-note' }, ico('shield', 16), h('span', null, 'Apps run inside WebOS on this site and are not fully isolated. Listed apps are reviewed, but only install apps from publishers you trust.')),
+        h('div', { class: 'st-note' }, ico('shield', 16), h('span', null, isLink ? `This adds a shortcut that opens ${hostOf(a.url)} in its own browser tab. The website is run by its own publisher, not by WebOS, and it needs an internet connection.` : 'Apps run inside WebOS on this site and are not fully isolated. Listed apps are reviewed, but only install apps from publishers you trust.')),
         h('h3', null, 'Ratings and comments'),
         reviewsBox
       )
@@ -331,6 +330,7 @@ export function buildStore(host) {
     const done = () => {
       if (arg && arg.next === 'back' && stack.length > 1) return back();
       if (arg && arg.next === 'submit') return replace('submit');
+      if (arg && arg.next === 'feedback') return replace('feedback');
       replace('account');
     };
     if (st.me) return profile(body, live);
@@ -463,6 +463,8 @@ export function buildStore(host) {
         { class: 'st-center wide' },
         h('div', { class: 'st-auth' }, h('div', { class: 'st-me' }, h('span', { class: 'avatar' }, [...me.name][0].toUpperCase()), h('div', null, h('b', null, me.name), h('div', { class: 'hint' }, me.email))), h('div', { class: 'row' }, h('button', { class: 'btn primary', onclick: () => nav('submit') }, ico('plus', 15), 'Request an app'), h('button', { class: 'btn', onclick: async () => { await post('auth/logout').catch(() => {}); st.me = null; toast('Signed out.'); replace('account'); } }, ico('logout', 15), 'Sign out'))),
         h('div', { class: 'st-auth' }, h('h3', { class: 'st-h' }, 'Your requests'), subs),
+        reviewerBox(me, live),
+        h('div', { class: 'st-auth' }, h('h3', { class: 'st-h' }, 'Message the admin'), h('p', { class: 'hint' }, 'Ask for a feature or report a bug. You will see the reply here.'), h('div', { class: 'row' }, h('button', { class: 'btn', onclick: () => nav('feedback') }, ico('message', 15), 'Write a message'))),
         h('div', { class: 'st-auth' }, h('h3', { class: 'st-h' }, 'Display name'), field('Name', name), nameErr, saveName),
         h('div', { class: 'st-auth' }, h('h3', { class: 'st-h' }, 'Password'), field('Current password', oldPw), field('New password', newPw), pwErr, savePw),
         h('div', { class: 'st-auth' }, h('h3', { class: 'st-h' }, 'Delete account'), h('p', { class: 'hint' }, 'Removes your account and your reviews. Apps you installed stay on your desktop.'), h('button', { class: 'btn danger', onclick: deleteAccount }, ico('trash', 15), 'Delete my account'))
@@ -478,7 +480,7 @@ export function buildStore(host) {
   }
   const STATUS = { pending: ['Waiting for approval', 'warn'], approved: ['In the Store', 'ok'], rejected: ['Not accepted', ''] };
   const subRow = (s) =>
-    h('div', { class: 'st-sub' }, h('div', null, h('b', null, s.title), h('div', { class: 'hint' }, s.repo, s.note ? ` · ${s.note}` : '')), h('span', { class: 'chip ' + STATUS[s.status][1] }, STATUS[s.status][0]));
+    h('div', { class: 'st-sub' }, h('div', null, h('b', null, s.title), h('div', { class: 'hint' }, s.kind === 'link' ? 'Web app · ' : '', s.repo, s.note ? ` · ${s.note}` : '')), h('span', { class: 'chip ' + STATUS[s.status][1] }, STATUS[s.status][0]));
 
   async function deleteAccount() {
     if (!(await confirmBox({ title: 'Delete your account?', message: 'Your account and reviews will be removed. This cannot be undone.', confirmLabel: 'Continue', danger: true }))) return;
@@ -498,30 +500,47 @@ export function buildStore(host) {
   async function viewSubmit(body, _a, live) {
     await Promise.all([st.me === undefined ? loadMe() : 0, loadMeta()]);
     if (!live()) return;
-    const mailLink = h('a', { class: 'btn', href: MAIL('WebOS Store listing request', 'GitHub link:\nApp name:\nWhat it does:\n') }, ico('mail', 15), `Email ${OS.author.split(' ')[0]} instead`);
-    const intro = h('div', { class: 'st-note' }, ico('info', 16), h('span', null, 'Only public GitHub repositories with an index.html (or a built dist/build folder) can be listed. Every request is reviewed before it appears.'));
+    const mailLink = h('a', { class: 'btn', href: MAIL('WebOS Store listing request', 'GitHub link or website:\nApp name:\nWhat it does:\n') }, ico('mail', 15), `Email ${OS.author.split(' ')[0]} instead`);
     if (!st.me) {
       body.append(h('div', { class: 'st-center' }, h('div', { class: 'st-auth' }, h('div', { class: 'st-auth-ico' }, ico('key', 28)), h('h3', { class: 'st-h' }, 'Sign in to send a request'), h('p', { class: 'hint' }, 'A free WebOS account lets us keep track of requests and stops spam. You can also just send an email.'), h('button', { class: 'btn primary wide', onclick: () => replace('account', { next: 'submit', mode: 'register' }) }, 'Create an account'), h('button', { class: 'btn wide', onclick: () => replace('account', { next: 'submit' }) }, 'I already have an account'), mailLink)));
       return;
     }
+    let kind = 'repo';
+    const intro = h('div', { class: 'st-note' });
+    const seg = h('div', { class: 'seg st-tabs' });
     const repo = h('input', { class: 'input', placeholder: 'github.com/owner/repo  or  owner/repo', spellcheck: 'false', autocomplete: 'off' });
-    const title = h('input', { class: 'input', maxlength: '60', placeholder: 'Defaults to the repository name' });
+    const site = h('input', { class: 'input', placeholder: 'example.com', spellcheck: 'false', autocomplete: 'off', inputmode: 'url', autocapitalize: 'off' });
+    const title = h('input', { class: 'input', maxlength: '60' });
     const desc = h('textarea', { class: 'input textarea', rows: '4', maxlength: '500', placeholder: 'What does it do? (at least 20 characters)' });
     const cat = h('select', { class: 'select full' }, st.meta.categories.map((c) => h('option', { value: c }, c)));
     const err = errBox();
     const ok = h('div', { class: 'st-okbox', hidden: true });
     const go = h('button', { class: 'btn primary', type: 'button' }, ico('send', 15), 'Send request');
-    go.onclick = busy(go, 'Checking repository…', async () => {
+    const repoField = field('GitHub repository', repo, 'The publisher name shown in the Store comes from the GitHub account that owns it.');
+    const siteField = field('Website address', site);
+    const draw = () => {
+      seg.replaceChildren(...[['repo', 'GitHub app'], ['link', 'Website link']].map(([k, l]) => h('button', { type: 'button', class: k === kind ? 'on' : '', onclick: () => ((kind = k), draw()) }, l)));
+      intro.replaceChildren(
+        ico('info', 16),
+        h('span', null, kind === 'repo' ? 'Public GitHub repositories with an index.html (or a built dist/build folder) are installed into WebOS. If the repository has no index.html because the app runs online (GitHub Pages, Vercel…), add its website address and it is listed as a web app.' : 'Add any website or online app, such as web mail or a chat page. People get a shortcut that opens it in its own browser tab. The website must be public and must not need anything from the person other than signing in to it.')
+      );
+      repoField.hidden = kind !== 'repo';
+      siteField.querySelector('.field-label').textContent = kind === 'repo' ? 'Website address (only if the repository has no index.html)' : 'Website address';
+      title.placeholder = kind === 'repo' ? 'Defaults to the repository name' : 'For example: WhatsApp Web';
+      err.hidden = true;
+    };
+    go.onclick = busy(go, 'Checking…', async () => {
       err.hidden = true;
       ok.hidden = true;
       try {
-        const r = await post('store/submit', { repo: repo.value, title: title.value, description: desc.value, category: cat.value });
+        const r = await post('store/submit', { kind, repo: repo.value, url: site.value, title: title.value, description: desc.value, category: cat.value });
         ok.hidden = false;
-        ok.replaceChildren(ico('check', 18), h('span', null, r.verified ? 'Request sent. The repository checked out and is now waiting for approval.' : 'Request sent. We could not fully check the repository just now, so it will be reviewed by hand.'));
-        repo.value = title.value = desc.value = '';
+        ok.replaceChildren(ico('check', 18), h('span', null, r.kind === 'link' ? 'Request sent as a web app. It will be reviewed before it appears in the Store.' : r.verified ? 'Request sent. The repository checked out and is now waiting for approval.' : 'Request sent. We could not fully check the repository just now, so it will be reviewed by hand.'));
+        repo.value = site.value = title.value = desc.value = '';
         loadSubs();
       } catch (e) {
         showErr(err, e);
+        if (e instanceof ApiError && e.code === 'needs_url') site.focus();
       }
     });
     const subs = h('div', { class: 'st-subs' });
@@ -531,18 +550,159 @@ export function buildStore(host) {
         if (live()) subs.replaceChildren(...r.submissions.slice(0, 8).map(subRow));
       } catch {}
     }
-    body.append(h('div', { class: 'st-center wide' }, intro, h('div', { class: 'st-auth' }, field('GitHub repository', repo, 'The publisher name shown in the Store comes from the GitHub account that owns it.'), field('App name', title), field('Description', desc), field('Category', cat), err, ok, h('div', { class: 'row' }, go, mailLink)), h('h3', { class: 'st-h pad' }, 'Your recent requests'), subs));
+    draw();
+    body.append(h('div', { class: 'st-center wide' }, intro, h('div', { class: 'st-auth' }, seg, repoField, siteField, field('App name', title), field('Description', desc), field('Category', cat), err, ok, h('div', { class: 'row' }, go, mailLink)), h('div', { class: 'st-auth' }, h('h3', { class: 'st-h' }, 'Your recent requests'), subs)));
     loadSubs();
+  }
+
+  /* ----------------------------------------------- reviewer account box */
+  function reviewerBox(me, live) {
+    const need = (st.meta && st.meta.reviewStreak) || 5;
+    const box = h('div', { class: 'st-auth' }, h('h3', { class: 'st-h' }, 'App reviewer'));
+    const err = errBox();
+    if (me.reviewer) {
+      box.append(h('p', { class: 'hint' }, 'You are an app reviewer. You can approve or reject requests from other people. Apps and decisions made by the admin cannot be changed by reviewers.'), h('div', { class: 'row' }, h('button', { class: 'btn primary', onclick: () => nav('review') }, ico('check', 15), 'Open review queue')));
+      return box;
+    }
+    const n = Math.min(me.streak || 0, need);
+    const bar = h('div', { class: 'st-progress', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': String(need), 'aria-valuenow': String(n) }, h('i', { style: { width: (n / need) * 100 + '%' } }));
+    box.append(h('p', { class: 'hint' }, `Get ${need} of your apps approved in a row and you can ask to become an app reviewer. A rejected request starts the count again.`), bar, h('div', { class: 'hint' }, `${n} of ${need} approved in a row`));
+    if (me.reviewerRequested) box.append(h('div', { class: 'st-okbox' }, ico('check', 18), h('span', null, 'Your request is waiting for the admin.')));
+    else if (me.reviewerDeniedUntil) box.append(h('p', { class: 'hint' }, `Your last request was not accepted. You can ask again after ${new Date(me.reviewerDeniedUntil).toLocaleDateString()}.`));
+    else if (n >= need) {
+      const msg = h('textarea', { class: 'input textarea', rows: '2', maxlength: '400', placeholder: 'Why would you like to help? (optional)' });
+      const go = h('button', { class: 'btn primary', type: 'button' }, ico('send', 15), 'Request reviewer access');
+      go.onclick = busy(go, 'Sending…', async () => {
+        err.hidden = true;
+        try {
+          st.me = (await post('reviewer/request', { message: msg.value })).user;
+          toast('Request sent to the admin.', { kind: 'success' });
+          if (live()) replace('account');
+        } catch (e) {
+          showErr(err, e);
+        }
+      });
+      box.append(msg, err, go);
+    }
+    return box;
+  }
+
+  /* ----------------------------------------------------------- feedback */
+  async function viewFeedback(body, _a, live) {
+    await Promise.all([st.me === undefined ? loadMe() : 0, loadMeta()]);
+    if (!live()) return;
+    if (!st.me) {
+      body.append(h('div', { class: 'st-center' }, h('div', { class: 'st-auth' }, h('div', { class: 'st-auth-ico' }, ico('message', 28)), h('h3', { class: 'st-h' }, 'Sign in to message the admin'), h('p', { class: 'hint' }, 'Registered users can ask for a feature or report a bug. A free account takes a minute.'), h('button', { class: 'btn primary wide', onclick: () => replace('account', { next: 'feedback', mode: 'register' }) }, 'Create an account'), h('button', { class: 'btn wide', onclick: () => replace('account', { next: 'feedback' }) }, 'I already have an account'))));
+      return;
+    }
+    const TYPES = [['feature', 'Feature request'], ['bug', 'Bug report'], ['other', 'Something else']];
+    const type = h('select', { class: 'select full' }, TYPES.map(([v, l]) => h('option', { value: v }, l)));
+    const subject = h('input', { class: 'input', maxlength: '80', placeholder: 'A short title' });
+    const msg = h('textarea', { class: 'input textarea', rows: '6', maxlength: '1500', placeholder: 'Tell us what you would like, or what went wrong and how to see it happen.' });
+    const err = errBox();
+    const ok = h('div', { class: 'st-okbox', hidden: true });
+    const go = h('button', { class: 'btn primary', type: 'button' }, ico('send', 15), 'Send message');
+    const list = h('div', { class: 'st-subs' });
+    go.onclick = busy(go, 'Sending…', async () => {
+      err.hidden = true;
+      ok.hidden = true;
+      try {
+        await post('feedback/send', { type: type.value, subject: subject.value, message: msg.value, version: OS.version });
+        ok.hidden = false;
+        ok.replaceChildren(ico('check', 18), h('span', null, 'Thank you! Your message was sent to the admin.'));
+        subject.value = msg.value = '';
+        load();
+      } catch (e) {
+        showErr(err, e);
+      }
+    });
+    async function load() {
+      try {
+        const r = await get('feedback/mine');
+        if (!live()) return;
+        list.replaceChildren(...(r.messages.length ? r.messages.map((m) => h('div', { class: 'fb-msg' }, h('div', { class: 'fb-h' }, h('b', null, m.subject), h('span', { class: 'chip ' + (m.status === 'done' ? 'ok' : '') }, m.status === 'done' ? 'Answered' : 'Sent')), h('div', { class: 'hint' }, `${TYPES.find((t) => t[0] === m.type)?.[1] || 'Message'} · ${ago(m.at)}`), h('p', { class: 'fb-body' }, m.message), m.reply && h('div', { class: 'fb-reply' }, h('b', null, 'Reply from the admin'), h('p', null, m.reply)))) : [h('p', { class: 'hint' }, 'You have not sent any messages yet.')]));
+      } catch {}
+    }
+    body.append(h('div', { class: 'st-center wide' }, h('div', { class: 'st-auth' }, h('p', { class: 'hint' }, 'Your message goes to the person who runs WebOS. Please do not include passwords.'), field('What is it about?', type), field('Title', subject), field('Message', msg), err, ok, go), h('div', { class: 'st-auth' }, h('h3', { class: 'st-h' }, 'Your messages'), list)));
+    load();
+  }
+
+  /* ------------------------------------------------------------- review */
+  async function viewReview(body, _a, live) {
+    await Promise.all([st.me === undefined ? loadMe() : 0]);
+    if (!live()) return;
+    if (!st.me || !st.me.reviewer) {
+      body.append(h('div', { class: 'st-empty' }, h('div', { class: 'st-empty-ico' }, ico('shield', 34)), h('h3', null, 'Reviewers only'), h('p', null, 'This page is for approved app reviewers.')));
+      return;
+    }
+    let status = 'pending';
+    const tabs = h('div', { class: 'seg st-tabs' });
+    const list = h('div', { class: 'st-subs rv-list' });
+    body.append(h('div', { class: 'st-center wide' }, h('div', { class: 'st-note' }, ico('info', 16), h('span', null, 'Check that each request does what it says, is safe, and fits the category. Apps added or decided by the admin are read-only for reviewers.')), tabs, list));
+    async function load() {
+      list.replaceChildren(h('div', { class: 'st-card skel', style: 'height:90px' }));
+      let r;
+      try {
+        r = await get('review/apps?status=' + status);
+      } catch (e) {
+        if (live()) list.replaceChildren(h('div', { class: 'form-err' }, e.message));
+        return;
+      }
+      if (!live()) return;
+      tabs.replaceChildren(...[['pending', 'Waiting'], ['approved', 'Published'], ['rejected', 'Rejected']].map(([k, l]) => h('button', { type: 'button', class: k === status ? 'on' : '', onclick: () => ((status = k), load()) }, l + (r.counts ? ` (${r.counts[k]})` : ''))));
+      list.replaceChildren(...(r.apps.length ? r.apps.map(rvCard) : [h('p', { class: 'hint', style: 'text-align:center;padding:1.5rem 0' }, status === 'pending' ? 'Nothing is waiting. Thank you!' : 'Nothing here.')]));
+    }
+    function rvCard(a) {
+      const link = a.kind === 'link' ? a.url : `https://github.com/${a.owner}/${a.repo}${a.subdir ? '/tree/HEAD/' + a.subdir : ''}`;
+      const act = (label, cls, fn, confirmText) => {
+        const b = h('button', { class: 'btn small ' + cls, type: 'button' }, label);
+        b.onclick = async () => {
+          if (confirmText && !(await confirmBox({ title: label + '?', message: confirmText, confirmLabel: label, danger: cls.includes('danger') }))) return;
+          b.disabled = true;
+          try {
+            await fn();
+            load();
+          } catch (e) {
+            if (e.message !== 'Cancelled.') toast(e.message, { kind: 'error' });
+            b.disabled = false;
+          }
+        };
+        return b;
+      };
+      const id = encodeURIComponent(a.id);
+      const buttons = [];
+      if (a.can) {
+        if (a.status !== 'approved') buttons.push(act('Approve', 'primary', () => post(`review/apps/${id}/approve`, {})));
+        if (a.status === 'pending') buttons.push(act('Reject', 'danger', async () => {
+          const note = await promptBox({ title: 'Reject this request', label: 'Reason (shown to the person, optional)', confirmLabel: 'Reject' });
+          if (note === null || note === undefined) throw new ApiError('Cancelled.');
+          await post(`review/apps/${id}/reject`, { note });
+        }));
+        if (a.status === 'approved') buttons.push(act('Unpublish', '', () => post(`review/apps/${id}/unpublish`, {}), 'Move this app back to Waiting?'));
+        buttons.push(act('Delete', 'ghost danger', () => del(`review/apps/${id}`), `Delete “${a.title}” permanently?`));
+      }
+      return h(
+        'div',
+        { class: 'rv-card' },
+        h('div', { class: 'st-card-top' }, appIcon({ title: a.title, iconUrl: a.iconUrl, kind: a.kind }, 44), h('div', { class: 'st-card-id' }, h('b', null, a.title), h('span', { class: 'by' }, a.kind === 'link' ? 'Web app · ' + hostOf(a.url) : `${a.owner}/${a.repo}`))),
+        h('div', { class: 'rv-chips' }, h('span', { class: 'chip' }, a.category), a.kind === 'link' ? h('span', { class: 'chip' }, 'Web app') : h('span', { class: 'chip ' + (a.verified ? 'ok' : 'warn') }, a.verified ? 'Has index.html' : 'Not verified'), a.byAdmin && h('span', { class: 'chip' }, 'Added by admin'), a.mine && h('span', { class: 'chip' }, 'Your request'), a.decidedByName && a.status !== 'pending' && h('span', { class: 'chip' }, 'Decided by ' + a.decidedByName)),
+        h('p', { class: 'st-desc' }, a.description),
+        h('div', { class: 'hint' }, `From ${a.submittedByName || 'someone'} · ${ago(a.submittedAt)}`, a.note ? ` · Note: ${a.note}` : ''),
+        h('div', { class: 'rv-acts' }, h('a', { class: 'btn small', href: link, target: '_blank', rel: 'noopener noreferrer' }, ico('external', 14), a.kind === 'link' ? 'Open website' : 'Open on GitHub'), ...buttons)
+      );
+    }
+    load();
   }
 
   /* -------------------------------------------------------------- start */
   stack.push({ name: 'home' });
+  if (startArg && ['feedback', 'review', 'account', 'submit'].includes(startArg.view)) stack.push({ name: startArg.view });
   render();
 
   return {
     el: root,
     go(view, arg) {
-      if (view === 'submit') nav('submit');
+      if (['submit', 'feedback', 'review', 'account'].includes(view)) nav(view);
       else if (view === 'detail' && arg) nav('detail', arg);
     },
     destroy() {

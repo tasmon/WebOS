@@ -57,3 +57,5 @@ label.f { display: grid; gap: 4px; font-size: .8rem; color: var(--muted); }
 #toasts { position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); display: grid; gap: 8px; z-index: 50; width: min(420px, calc(100vw - 24px)); }
 .toast { padding: 10px 14px; border-radius: 10px; background: var(--panel); border: 1px solid var(--line); box-shadow: 0 8px 24px rgba(0,0,0,.3); }
 .toast.error { color: var(--danger); } .toast.success { color: var(--ok); }
+
+[hidden] { display: none !important; }

@@ -31,22 +31,32 @@ export function buildHelp(host) {
     ),
     section('store', 'The Store', [
       list(
-        'Open Store from the desktop or start menu to browse apps. Every app comes from GitHub and is approved before it is listed.',
+        'Open Store from the desktop or start menu to browse apps. Every app is reviewed before it is listed.',
+        'GitHub apps are installed into WebOS. Web apps are shortcuts that open an online app in its own browser tab.',
         'Search, pick a category, or sort by downloads, rating or newest.',
-        ['Press ', h('b', null, 'Get'), ' to install. Installed apps show ', h('b', null, 'Open'), '.'],
+        ['Press ', h('b', null, 'Get'), ' to add an app. Added apps show ', h('b', null, 'Open'), '.'],
         'Ratings and comments come from people with a WebOS account. Sign in to leave your own.',
-        'To suggest an app, create an account and choose Request an app. Pick security questions when you register: they let you reset a forgotten password.',
+        'To suggest an app, create an account and choose Request an app. Send a GitHub repository or a website address. A repository with no index.html that runs online is listed as a web app.',
+        'Pick security questions when you register: they let you reset a forgotten password.',
         ['You can also email ', h('a', { href: 'mailto:' + OS.email }, OS.email), ' to ask for a listing.']
       ),
       h('p', null, h('button', { class: 'btn', onclick: () => host.openSystem('store') }, ico('store', 16), 'Open Store')),
     ]),
-    section('builtin', 'Built-in apps and web shortcuts', [
+    section('message', 'Reviewers and messages', [
+      list(
+        'Get 5 of your requested apps approved in a row, then open your Store account page and choose Request reviewer access.',
+        'Reviewers approve or reject requests from other people. They cannot change or delete anything the admin added or decided.',
+        ['Registered users can message the admin about a feature or a bug from ', h('b', null, 'About → Send feedback'), '. Replies appear in the Store, under Message the admin.']
+      ),
+      h('p', null, h('button', { class: 'btn', onclick: () => host.openSystem('store', { view: 'feedback' }) }, ico('message', 16), 'Message the admin')),
+    ]),
+    section('globe', 'Built-in apps and web shortcuts', [
       list(
         [h('b', null, 'Browser'), ': open websites inside a window, with bookmarks and a search box. Some sites refuse to be shown inside other pages, and WebOS cannot change that. For those, use Open in its own window.'],
         [h('b', null, 'Media Player'), ': play music and video from your device. Drop files on it or press Open. Space plays or pauses, arrows seek and change volume, F is full screen. Files are not kept after you close it.'],
         [h('b', null, 'PDF Reader'), ': open a PDF from your device, scroll, zoom and jump to a page. Its reading engine downloads only the first time you open it.'],
         [h('b', null, 'Tetris'), ': arrows move, Up rotates, Space drops, C holds, P pauses. On phones, use the buttons or swipe.'],
-        [h('b', null, 'Web shortcuts'), ': right-click the desktop (or use the start menu) and choose Add web shortcut. Type an address such as web.whatsapp.com, pick a name, and choose how it opens. Sites like WhatsApp, Google and YouTube forbid being framed, so they open in their own browser window by default.']
+        [h('b', null, 'Web shortcuts'), ': right-click the desktop (or use the start menu) and choose Add web shortcut. Type an address such as web.whatsapp.com, pick a name, and choose how it opens. Choose In its own browser tab, which is recommended. Sites like WhatsApp, Google and YouTube forbid being shown inside other pages, so they always open in their own tab.']
       ),
     ]),
     section('package', 'Ways to install an app', [

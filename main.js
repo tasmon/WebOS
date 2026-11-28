@@ -18,7 +18,7 @@ import { buildBrowser } from './app-browser.js';
 import { buildMedia } from './app-media.js';
 import { buildPdf } from './app-pdf.js';
 import { buildTetris } from './app-tetris.js';
-import { openShortcutDialog, framedSite, openPopup } from './web-apps.js';
+import { openShortcutDialog, framedSite, openPopup, newLinkRecord } from './web-apps.js';
 import { post as apiPost } from './store-api.js';
 import { canInstall, promptInstall, onInstallChange } from './pwa.js';
 
@@ -69,6 +69,18 @@ const host = {
   },
   /** Installs an app listed in the Store (always from its GitHub repository) and remembers which listing it came from. */
   async installFromStore(sa) {
+    if (sa.kind === 'link') {
+      // web apps are added as shortcuts that open in their own browser tab: nothing is downloaded
+      const rec = await newLinkRecord({ url: sa.url, name: sa.title, openIn: 'popup', description: sa.description, extra: { storeId: sa.id, author: sa.publisherName || '' } });
+      await db.putApp(rec);
+      await reloadApps();
+      toast(`${rec.name} was added to your desktop.`, { kind: 'success', actions: [{ label: 'Open', onClick: () => openApp(rec) }] });
+      let counted = false;
+      try {
+        counted = !!(await apiPost('store/apps/' + encodeURIComponent(sa.id) + '/download')).counted;
+      } catch {}
+      return { result: { app: rec }, counted };
+    }
     let prefill = `${sa.owner}/${sa.repo}`;
     if (sa.ref || sa.subdir) prefill = `https://github.com/${sa.owner}/${sa.repo}/tree/${encodeURIComponent(sa.ref || 'HEAD')}${sa.subdir ? '/' + sa.subdir : ''}`;
     const result = await openInstaller({ tab: 'github', prefill, autoStart: true });
@@ -289,7 +301,7 @@ function openSystem(id, arg) {
   let inst;
   let content;
   if (id === 'store') {
-    inst = buildStore(host);
+    inst = buildStore(host, arg);
     content = inst.el;
   } else if (id === 'browser') {
     inst = buildBrowser(host, typeof arg === 'string' ? arg : '');
@@ -310,7 +322,7 @@ function openSystem(id, arg) {
     inst = buildSettings(host, arg || 'appearance');
     content = inst.el;
   } else if (id === 'help') content = buildHelp(host);
-  else content = buildAbout();
+  else content = buildAbout(host);
   instances.set(key, inst || {});
   wm.create({
     key,
